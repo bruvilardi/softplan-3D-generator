@@ -20,9 +20,11 @@ interface SceneProps {
   bgColor: string;
   ambientIntensity: number;
   lightRotation: number;
+  environmentPreset?: 'studio' | 'city' | 'sunset' | 'dawn' | 'night' | 'warehouse' | 'forest' | 'apartment' | 'park' | 'lobby';
   transparentBg?: boolean;
   animate?: boolean;
   animationSpeed?: number;
+  animationType?: 'rotate' | 'zoom-in' | 'zoom-out' | 'float' | 'tumble' | 'swing' | 'all';
 }
 
 function InnerScene({
@@ -36,12 +38,58 @@ function InnerScene({
   color,
   animate,
   animationSpeed = 1,
+  animationType = 'rotate',
 }: Partial<SceneProps>) {
   const groupRef = useRef<THREE.Group>(null);
   
   useFrame((state, delta) => {
-    if (animate && groupRef.current) {
-      groupRef.current.rotation.y += delta * (animationSpeed || 1);
+    if (!groupRef.current) return;
+
+    if (animate) {
+      const speed = animationSpeed || 1;
+      const time = state.clock.elapsedTime * speed;
+      
+      // Reset transforms for modes that don't use them to avoid getting stuck
+      if (animationType !== 'zoom-in' && animationType !== 'zoom-out' && animationType !== 'all') {
+        groupRef.current.scale.set(1, 1, 1);
+      }
+      if (animationType !== 'float' && animationType !== 'all') {
+        groupRef.current.position.y = 0;
+      }
+      if (animationType !== 'tumble') {
+        groupRef.current.rotation.x = 0;
+      }
+      if (animationType !== 'swing' && animationType !== 'tumble') {
+        groupRef.current.rotation.z = 0;
+      }
+
+      // Apply animations
+      if (animationType === 'rotate' || animationType === 'all') {
+        groupRef.current.rotation.y += delta * speed;
+      } else if (animationType === 'tumble') {
+        groupRef.current.rotation.x += delta * speed * 0.5;
+        groupRef.current.rotation.y += delta * speed * 0.7;
+        groupRef.current.rotation.z += delta * speed * 0.3;
+      } else if (animationType === 'swing') {
+        groupRef.current.rotation.z = Math.sin(time) * 0.3;
+        groupRef.current.rotation.y = Math.sin(time * 0.5) * 0.4;
+      }
+
+      if (animationType === 'zoom-in' || animationType === 'all') {
+        // Go from 1x to a massive 6x (getting very close)
+        const sin01 = Math.sin(time) * 0.5 + 0.5;
+        const scale = 1 + sin01 * 5; 
+        groupRef.current.scale.set(scale, scale, scale);
+      } else if (animationType === 'zoom-out') {
+        // Go from 1x down to tiny 0.15x (getting very far)
+        const sin01 = Math.sin(time) * 0.5 + 0.5;
+        const scale = 0.15 + sin01 * 0.85; 
+        groupRef.current.scale.set(scale, scale, scale);
+      }
+
+      if (animationType === 'float' || animationType === 'all') {
+        groupRef.current.position.y = Math.sin(time) * 0.6;
+      }
     }
   });
 
@@ -147,9 +195,11 @@ export function Scene({
   bgColor,
   ambientIntensity,
   lightRotation,
+  environmentPreset = 'studio',
   transparentBg = false,
   animate = false,
   animationSpeed = 1,
+  animationType = 'rotate',
 }: SceneProps) {
   return (
     <Canvas gl={{ preserveDrawingBuffer: true, alpha: true }} camera={{ position: [0, 0, 8], fov: 45 }} shadows>
@@ -165,7 +215,7 @@ export function Scene({
       </group>
 
       {/* Environment for reflections */}
-      <Environment preset="city" environmentRotation={[0, (lightRotation * Math.PI) / 180, 0]} environmentIntensity={0.5 + ambientIntensity} />
+      <Environment preset={environmentPreset as any} environmentRotation={[0, (lightRotation * Math.PI) / 180, 0]} environmentIntensity={0.5 + ambientIntensity} />
 
       {/* Group of Elements */}
       <InnerScene 
@@ -179,6 +229,7 @@ export function Scene({
         color={color}
         animate={animate}
         animationSpeed={animationSpeed}
+        animationType={animationType}
       />
 
       {/* Ground shadow (hidden when exporting with transparent bg) */}

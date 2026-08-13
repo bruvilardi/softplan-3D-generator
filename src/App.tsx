@@ -18,11 +18,13 @@ export default function App() {
   const [color, setColor] = useState('#5c5cff'); // Default brand color
   const [ambientIntensity, setAmbientIntensity] = useState(0.4);
   const [lightRotation, setLightRotation] = useState(0);
+  const [environmentPreset, setEnvironmentPreset] = useState('studio');
   const [bgColor, setBgColor] = useState('#e8e8ed'); // New background color state
 
   // New state for animation & export
   const [animate, setAnimate] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1);
+  const [animationType, setAnimationType] = useState<'rotate' | 'zoom-in' | 'zoom-out' | 'float' | 'tumble' | 'swing' | 'all'>('rotate');
   const [transparentBg, setTransparentBg] = useState(false);
   const [recordingMode, setRecordingMode] = useState<'none' | 'solid' | 'transparent'>('none');
 
@@ -343,6 +345,21 @@ export default function App() {
             <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider">Lighting Setup</h3>
             
             <div className="space-y-3">
+              <label className="text-sm font-medium text-neutral-700">Environment Setup</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['studio', 'city', 'sunset', 'dawn', 'night', 'warehouse', 'forest', 'apartment'] as const).map(preset => (
+                  <button
+                    key={preset}
+                    onClick={() => setEnvironmentPreset(preset)}
+                    className={`py-1.5 text-xs font-medium rounded border transition-colors capitalize ${environmentPreset === preset ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-neutral-200 text-neutral-600 hover:border-indigo-300'}`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <label className="text-sm font-medium text-neutral-700">Ambient Intensity</label>
                 <span className="text-xs text-neutral-500 font-mono">{ambientIntensity.toFixed(2)}</span>
@@ -390,20 +407,37 @@ export default function App() {
               </button>
             </div>
             
-            <div className={`space-y-3 transition-opacity ${!animate ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-              <div className="flex justify-between items-center">
-                <label className="text-sm font-medium text-neutral-700">Speed</label>
-                <span className="text-xs text-neutral-500 font-mono">{animationSpeed.toFixed(1)}x</span>
+            <div className={`space-y-4 transition-opacity ${!animate ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-neutral-700">Type</label>
+                <div className="flex flex-wrap gap-2">
+                  {(['rotate', 'zoom-in', 'zoom-out', 'float', 'tumble', 'swing', 'all'] as const).map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setAnimationType(type)}
+                      className={`flex-1 min-w-[30%] py-1.5 px-2 text-xs font-medium rounded border transition-colors capitalize ${animationType === type ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-neutral-200 text-neutral-600 hover:border-indigo-300'}`}
+                    >
+                      {type.replace('-', ' ')}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <input
-                type="range"
-                min="0.1"
-                max="3"
-                step="0.1"
-                value={animationSpeed}
-                onChange={(e) => setAnimationSpeed(parseFloat(e.target.value))}
-                className="w-full accent-indigo-600"
-              />
+
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium text-neutral-700">Speed</label>
+                  <span className="text-xs text-neutral-500 font-mono">{animationSpeed.toFixed(1)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="3"
+                  step="0.1"
+                  value={animationSpeed}
+                  onChange={(e) => setAnimationSpeed(parseFloat(e.target.value))}
+                  className="w-full accent-indigo-600"
+                />
+              </div>
             </div>
           </div>
 
@@ -462,9 +496,11 @@ export default function App() {
           bgColor={bgColor}
           ambientIntensity={ambientIntensity}
           lightRotation={lightRotation}
+          environmentPreset={environmentPreset as any}
           transparentBg={transparentBg}
           animate={animate}
           animationSpeed={animationSpeed}
+          animationType={animationType}
         />
         
         {/* Helper overlay */}
