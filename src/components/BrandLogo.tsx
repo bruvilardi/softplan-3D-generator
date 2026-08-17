@@ -4,6 +4,8 @@ import * as THREE from 'three';
 interface BrandLogoProps {
   thickness: number;
   color: string;
+  transmission?: number;
+  roughness?: number;
   bevelSize?: number;
   position?: [number, number, number];
   rotation?: [number, number, number];
@@ -12,6 +14,8 @@ interface BrandLogoProps {
 export function BrandLogo({
   thickness,
   color,
+  transmission = 1,
+  roughness = 0.05,
   bevelSize = 0.05,
   position = [0, 0, 0],
   rotation = [0, 0, 0],
@@ -87,10 +91,10 @@ export function BrandLogo({
     <mesh geometry={geometry} position={position} rotation={rotation} castShadow receiveShadow>
       <meshPhysicalMaterial
         color={color}
-        transmission={1} // Glass effect
+        transmission={transmission} // Glass effect
         opacity={1}
         metalness={0.1}
-        roughness={0.05}
+        roughness={roughness}
         ior={1.5}
         thickness={thickness > 0 ? thickness : 0.1}
         clearcoat={1}

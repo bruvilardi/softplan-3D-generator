@@ -17,6 +17,8 @@ interface SceneProps {
   twistAngle: number;
   spacing: number;
   color: string;
+  transmission?: number;
+  roughness?: number;
   bgColor: string;
   ambientIntensity: number;
   lightRotation: number;
@@ -36,6 +38,8 @@ function InnerScene({
   twistAngle,
   spacing,
   color,
+  transmission,
+  roughness,
   animate,
   animationSpeed = 1,
   animationType = 'rotate',
@@ -161,6 +165,8 @@ function InnerScene({
                 rotation={[rotX, rotY, rotZ]}
                 thickness={thickness || 0.5}
                 color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : (color || '#5c5cff')}
+                transmission={transmission}
+                roughness={roughness}
                 bevelSize={0.05}
               />
             );
@@ -174,6 +180,8 @@ function InnerScene({
               thickness={thickness || 0.5}
               radius={radius || 0.4}
               color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : (color || '#5c5cff')}
+              transmission={transmission}
+              roughness={roughness}
               bevelSize={0.05}
             />
           );
@@ -192,6 +200,8 @@ export function Scene({
   twistAngle,
   spacing,
   color,
+  transmission = 1,
+  roughness = 0.05,
   bgColor,
   ambientIntensity,
   lightRotation,
@@ -227,6 +237,8 @@ export function Scene({
         twistAngle={twistAngle}
         spacing={spacing}
         color={color}
+        transmission={transmission}
+        roughness={roughness}
         animate={animate}
         animationSpeed={animationSpeed}
         animationType={animationType}

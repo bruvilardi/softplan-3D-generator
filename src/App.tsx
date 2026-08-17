@@ -16,6 +16,8 @@ export default function App() {
   const [twistAngle, setTwistAngle] = useState(0);
   const [spacing, setSpacing] = useState(0.8);
   const [color, setColor] = useState('#5c5cff'); // Default brand color
+  const [transmission, setTransmission] = useState(1); // Glassiness
+  const [roughness, setRoughness] = useState(0.05); // Frosted/Clear
   const [ambientIntensity, setAmbientIntensity] = useState(0.4);
   const [lightRotation, setLightRotation] = useState(0);
   const [environmentPreset, setEnvironmentPreset] = useState('studio');
@@ -149,9 +151,9 @@ export default function App() {
 
           <div className="h-px bg-neutral-100" />
 
-          {/* Color Control */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider">Material Color</h3>
+          {/* Material Setup */}
+          <div className="space-y-5">
+            <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider">Material Setup</h3>
             <div className="flex items-center space-x-3">
               <div className="flex-1 grid grid-cols-3 gap-2">
                 <button
@@ -179,6 +181,38 @@ export default function App() {
                   <span className="text-neutral-800 text-xs font-semibold bg-white/80 px-1.5 py-0.5 rounded backdrop-blur-sm">Both</span>
                 </button>
               </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium text-neutral-700">Translucency (Glassiness)</label>
+                <span className="text-xs text-neutral-500 font-mono">{transmission.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={transmission}
+                onChange={(e) => setTransmission(parseFloat(e.target.value))}
+                className="w-full accent-indigo-600"
+              />
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium text-neutral-700">Roughness (Frosted)</label>
+                <span className="text-xs text-neutral-500 font-mono">{roughness.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={roughness}
+                onChange={(e) => setRoughness(parseFloat(e.target.value))}
+                className="w-full accent-indigo-600"
+              />
             </div>
           </div>
 
@@ -493,6 +527,8 @@ export default function App() {
           twistAngle={twistAngle}
           spacing={spacing}
           color={color}
+          transmission={transmission}
+          roughness={roughness}
           bgColor={bgColor}
           ambientIntensity={ambientIntensity}
           lightRotation={lightRotation}
