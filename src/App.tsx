@@ -17,7 +17,7 @@ export default function App() {
   const [spacing, setSpacing] = useState(0.8);
   const [color, setColor] = useState('#5c5cff'); // Default brand color
   const [transmission, setTransmission] = useState(1); // Glassiness
-  const [roughness, setRoughness] = useState(0.05); // Frosted/Clear
+  const [roughness, setRoughness] = useState(0); // Frosted/Clear
   const [ambientIntensity, setAmbientIntensity] = useState(0.4);
   const [lightRotation, setLightRotation] = useState(0);
   const [environmentPreset, setEnvironmentPreset] = useState('studio');

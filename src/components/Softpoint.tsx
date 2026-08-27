@@ -60,14 +60,17 @@ export function Softpoint({
     <mesh geometry={geometry} position={position} rotation={rotation} castShadow receiveShadow>
       <meshPhysicalMaterial
         color={color}
-        transmission={transmission} // Glass effect
+        transmission={transmission}
         opacity={1}
-        metalness={0.1}
+        metalness={0.02}
         roughness={roughness}
-        ior={1.5}
-        thickness={thickness > 0 ? thickness : 0.1}
+        ior={1.55}
+        thickness={thickness > 0 ? thickness * 1.5 : 0.5}
+        attenuationColor={color}
+        attenuationDistance={0.25}
         clearcoat={1}
-        clearcoatRoughness={0.1}
+        clearcoatRoughness={0}
+        envMapIntensity={2}
         side={THREE.DoubleSide}
       />
     </mesh>
