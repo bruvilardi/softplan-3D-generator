@@ -27,6 +27,7 @@ export default function App() {
   const [animate, setAnimate] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [animationType, setAnimationType] = useState<'rotate' | 'zoom-in' | 'zoom-out' | 'float' | 'tumble' | 'swing' | 'all'>('rotate');
+  const [animationScope, setAnimationScope] = useState<'group' | 'individual'>('group');
   const [transparentBg, setTransparentBg] = useState(false);
   const [recordingMode, setRecordingMode] = useState<'none' | 'solid' | 'transparent'>('none');
 
@@ -457,6 +458,24 @@ export default function App() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-neutral-700">Scope</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setAnimationScope('group')}
+                    className={`py-1.5 text-xs font-medium rounded border transition-colors ${animationScope === 'group' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-neutral-200 text-neutral-600 hover:border-indigo-300'}`}
+                  >
+                    Group
+                  </button>
+                  <button
+                    onClick={() => setAnimationScope('individual')}
+                    className={`py-1.5 text-xs font-medium rounded border transition-colors ${animationScope === 'individual' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-neutral-200 text-neutral-600 hover:border-indigo-300'}`}
+                  >
+                    Individual
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <label className="text-sm font-medium text-neutral-700">Speed</label>
@@ -537,6 +556,7 @@ export default function App() {
           animate={animate}
           animationSpeed={animationSpeed}
           animationType={animationType}
+          animationScope={animationScope}
         />
         
         {/* Helper overlay */}

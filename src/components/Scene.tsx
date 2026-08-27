@@ -27,6 +27,91 @@ interface SceneProps {
   animate?: boolean;
   animationSpeed?: number;
   animationType?: 'rotate' | 'zoom-in' | 'zoom-out' | 'float' | 'tumble' | 'swing' | 'all';
+  animationScope?: 'group' | 'individual';
+}
+
+function AnimatedItem({
+  index,
+  basePosition,
+  baseRotation,
+  animate,
+  animationSpeed,
+  animationType,
+  animationScope,
+  children
+}: {
+  index: number;
+  basePosition: [number, number, number];
+  baseRotation: [number, number, number];
+  animate: boolean;
+  animationSpeed: number;
+  animationType: string;
+  animationScope: string;
+  children: React.ReactNode;
+}) {
+  const itemRef = useRef<THREE.Group>(null);
+
+  useFrame((state, delta) => {
+    if (!itemRef.current) return;
+    
+    if (animate && animationScope === 'individual') {
+      const speed = animationSpeed || 1;
+      const time = state.clock.elapsedTime * speed;
+      const offset = index * 0.5; 
+      const localTime = time + offset;
+
+      // Handle positions
+      if (animationType === 'float' || animationType === 'all') {
+        itemRef.current.position.set(
+          basePosition[0],
+          basePosition[1] + Math.sin(localTime) * 1.5,
+          basePosition[2]
+        );
+      } else {
+        itemRef.current.position.set(...basePosition);
+      }
+
+      // Handle scales
+      if (animationType === 'zoom-in' || animationType === 'all') {
+        const sin01 = Math.sin(localTime) * 0.5 + 0.5;
+        const scale = 1 + sin01 * 2.5; 
+        itemRef.current.scale.set(scale, scale, scale);
+      } else if (animationType === 'zoom-out') {
+        const sin01 = Math.sin(localTime) * 0.5 + 0.5;
+        const scale = 0.2 + sin01 * 0.8; 
+        itemRef.current.scale.set(scale, scale, scale);
+      } else {
+        itemRef.current.scale.set(1, 1, 1);
+      }
+
+      // Handle rotations
+      if (animationType === 'rotate' || animationType === 'all') {
+        itemRef.current.rotation.y += delta * speed;
+      } else if (animationType === 'tumble') {
+        itemRef.current.rotation.x += delta * speed * 0.5;
+        itemRef.current.rotation.y += delta * speed * 0.7;
+        itemRef.current.rotation.z += delta * speed * 0.3;
+      } else if (animationType === 'swing') {
+        itemRef.current.rotation.set(
+          baseRotation[0],
+          baseRotation[1] + Math.sin(localTime * 0.5) * 0.6,
+          baseRotation[2] + Math.sin(localTime) * 0.4
+        );
+      } else {
+         itemRef.current.rotation.set(...baseRotation);
+      }
+    } else {
+       itemRef.current.position.set(...basePosition);
+       itemRef.current.rotation.set(...baseRotation);
+       itemRef.current.scale.set(1, 1, 1);
+    }
+  });
+
+  return (
+    <group ref={itemRef} position={basePosition} rotation={baseRotation}>
+      {children}
+    </group>
+  );
 }
 
 function InnerScene({
@@ -43,13 +128,14 @@ function InnerScene({
   animate,
   animationSpeed = 1,
   animationType = 'rotate',
+  animationScope = 'group',
 }: Partial<SceneProps>) {
   const groupRef = useRef<THREE.Group>(null);
   
   useFrame((state, delta) => {
     if (!groupRef.current) return;
 
-    if (animate) {
+    if (animate && animationScope === 'group') {
       const speed = animationSpeed || 1;
       const time = state.clock.elapsedTime * speed;
       
@@ -80,12 +166,10 @@ function InnerScene({
       }
 
       if (animationType === 'zoom-in' || animationType === 'all') {
-        // Go from 1x to a massive 6x (getting very close)
         const sin01 = Math.sin(time) * 0.5 + 0.5;
         const scale = 1 + sin01 * 5; 
         groupRef.current.scale.set(scale, scale, scale);
       } else if (animationType === 'zoom-out') {
-        // Go from 1x down to tiny 0.15x (getting very far)
         const sin01 = Math.sin(time) * 0.5 + 0.5;
         const scale = 0.15 + sin01 * 0.85; 
         groupRef.current.scale.set(scale, scale, scale);
@@ -94,6 +178,10 @@ function InnerScene({
       if (animationType === 'float' || animationType === 'all') {
         groupRef.current.position.y = Math.sin(time) * 0.6;
       }
+    } else {
+       groupRef.current.position.set(0, 0, 0);
+       groupRef.current.rotation.set(0, 0, 0);
+       groupRef.current.scale.set(1, 1, 1);
     }
   });
 
@@ -157,33 +245,43 @@ function InnerScene({
             rotZ = rnd.rz;
           }
 
-          if (shapeType === 'logo') {
-            return (
-              <BrandLogo
-                key={i}
-                position={[posX, posY, posZ]}
-                rotation={[rotX, rotY, rotZ]}
-                thickness={thickness || 0.5}
-                color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : (color || '#5c5cff')}
-                transmission={transmission}
-                roughness={roughness}
-                bevelSize={0.05}
-              />
-            );
-          }
+          const pos: [number, number, number] = [posX, posY, posZ];
+          const rot: [number, number, number] = [rotX, rotY, rotZ];
 
           return (
-            <Softpoint
+            <AnimatedItem
               key={i}
-              position={[posX, posY, posZ]}
-              rotation={[rotX, rotY, rotZ]}
-              thickness={thickness || 0.5}
-              radius={radius || 0.4}
-              color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : (color || '#5c5cff')}
-              transmission={transmission}
-              roughness={roughness}
-              bevelSize={0.05}
-            />
+              index={i}
+              basePosition={pos}
+              baseRotation={rot}
+              animate={animate || false}
+              animationSpeed={animationSpeed}
+              animationType={animationType}
+              animationScope={animationScope}
+            >
+              {shapeType === 'logo' ? (
+                <BrandLogo
+                  position={[0, 0, 0]}
+                  rotation={[0, 0, 0]}
+                  thickness={thickness || 0.5}
+                  color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : (color || '#5c5cff')}
+                  transmission={transmission}
+                  roughness={roughness}
+                  bevelSize={0.05}
+                />
+              ) : (
+                <Softpoint
+                  position={[0, 0, 0]}
+                  rotation={[0, 0, 0]}
+                  thickness={thickness || 0.5}
+                  radius={radius || 0.4}
+                  color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : (color || '#5c5cff')}
+                  transmission={transmission}
+                  roughness={roughness}
+                  bevelSize={0.05}
+                />
+              )}
+            </AnimatedItem>
           );
         })}
       </group>
@@ -210,6 +308,7 @@ export function Scene({
   animate = false,
   animationSpeed = 1,
   animationType = 'rotate',
+  animationScope = 'group',
 }: SceneProps) {
   return (
     <Canvas gl={{ preserveDrawingBuffer: true, alpha: true }} camera={{ position: [0, 0, 8], fov: 45 }} shadows>
@@ -242,6 +341,7 @@ export function Scene({
         animate={animate}
         animationSpeed={animationSpeed}
         animationType={animationType}
+        animationScope={animationScope}
       />
 
       {/* Ground shadow (hidden when exporting with transparent bg) */}
