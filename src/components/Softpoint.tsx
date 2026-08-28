@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
+import { MeshTransmissionMaterial } from '@react-three/drei';
 
 interface SoftpointProps {
   thickness: number;
@@ -58,9 +59,10 @@ export function Softpoint({
 
   return (
     <mesh geometry={geometry} position={position} rotation={rotation} castShadow receiveShadow>
-      <meshPhysicalMaterial
+      <MeshTransmissionMaterial
         color={color}
         transmission={transmission}
+        transparent={true}
         opacity={1}
         metalness={0.02}
         roughness={roughness}

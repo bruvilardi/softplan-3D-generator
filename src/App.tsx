@@ -28,8 +28,41 @@ export default function App() {
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [animationType, setAnimationType] = useState<'rotate' | 'zoom-in' | 'zoom-out' | 'float' | 'tumble' | 'swing' | 'all'>('rotate');
   const [animationScope, setAnimationScope] = useState<'group' | 'individual'>('group');
+  const [cameraFov, setCameraFov] = useState(45);
+  const [cameraTrigger, setCameraTrigger] = useState<{ id: number, preset: string } | undefined>(undefined);
   const [transparentBg, setTransparentBg] = useState(false);
   const [recordingMode, setRecordingMode] = useState<'none' | 'solid' | 'transparent'>('none');
+
+  const [itemOverrides, setItemOverrides] = useState<Record<number, { x: number, y: number, z: number, rx: number, ry: number, rz: number }>>({});
+  const [selectedPiece, setSelectedPiece] = useState<number | null>(null);
+
+  const handleOverrideChange = (index: number, field: string, value: number) => {
+    setItemOverrides(prev => ({
+      ...prev,
+      [index]: {
+        ...(prev[index] || { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 }),
+        [field]: value
+      }
+    }));
+  };
+
+  const handleItemDrag = (index: number, dx: number, dy: number, dz: number) => {
+    setItemOverrides(prev => ({
+      ...prev,
+      [index]: {
+        ...(prev[index] || { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 }),
+        x: dx,
+        y: dy,
+        z: dz
+      }
+    }));
+    // Auto-select the dragged piece so the sliders show up!
+    setSelectedPiece(index);
+  };
+
+  const triggerCamera = (preset: string) => {
+    setCameraTrigger({ id: Date.now(), preset });
+  };
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -120,11 +153,13 @@ export default function App() {
     <div className="flex h-screen w-full bg-neutral-100 overflow-hidden font-sans">
       {/* Sidebar */}
       <aside className="w-80 h-full bg-white border-r border-neutral-200 flex flex-col shadow-sm z-10 relative">
-        <div className="p-6 border-b border-neutral-200 flex items-center space-x-3">
-          <div className="bg-indigo-100 p-2 rounded-lg">
-            <Settings2 className="w-5 h-5 text-indigo-600" />
-          </div>
-          <h1 className="text-xl font-semibold text-neutral-800 tracking-tight">Softpoint Studio</h1>
+        <div className="p-6 border-b border-neutral-200 flex items-center justify-start">
+          <img 
+            src="https://res.cloudinary.com/drvtrbeky/image/upload/v1775486507/Cinza_lakfmo.png" 
+            alt="Logo Softplan" 
+            className="h-5 object-contain" 
+            referrerPolicy="no-referrer"
+          />
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8">
@@ -349,6 +384,83 @@ export default function App() {
 
           <div className="h-px bg-neutral-100" />
 
+          {/* Individual Piece Setup */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider">Manual Positions</h3>
+              <button 
+                onClick={() => setItemOverrides({})}
+                className="text-xs text-indigo-600 font-medium hover:text-indigo-800"
+              >
+                Reset All
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-neutral-700">Select Piece</label>
+              <select
+                value={selectedPiece === null ? '' : selectedPiece}
+                onChange={(e) => setSelectedPiece(e.target.value === '' ? null : parseInt(e.target.value))}
+                className="w-full text-sm p-2 bg-white border border-neutral-200 rounded text-neutral-700 outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">-- None Selected --</option>
+                {Array.from({ length: quantity }).map((_, i) => (
+                  <option key={i} value={i}>Piece {i + 1}</option>
+                ))}
+              </select>
+            </div>
+
+            {selectedPiece !== null && (
+              <div className="space-y-4 pt-2">
+                {/* Position Controls */}
+                <div className="space-y-2 p-3 bg-neutral-50 rounded border border-neutral-100">
+                  <span className="text-xs font-semibold text-neutral-600 block mb-2">Position Offsets</span>
+                  {['x', 'y', 'z'].map((axis) => (
+                    <div key={`pos-${axis}`} className="flex items-center gap-3">
+                      <span className="text-xs font-medium text-neutral-500 w-4 uppercase">{axis}</span>
+                      <input
+                        type="range"
+                        min="-10"
+                        max="10"
+                        step="0.1"
+                        value={itemOverrides[selectedPiece]?.[axis as keyof typeof itemOverrides[0]] ?? 0}
+                        onChange={(e) => handleOverrideChange(selectedPiece, axis, parseFloat(e.target.value))}
+                        className="w-full accent-indigo-600"
+                      />
+                      <span className="text-xs text-neutral-500 font-mono w-8 text-right">
+                        {(itemOverrides[selectedPiece]?.[axis as keyof typeof itemOverrides[0]] ?? 0).toFixed(1)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Rotation Controls */}
+                <div className="space-y-2 p-3 bg-neutral-50 rounded border border-neutral-100">
+                  <span className="text-xs font-semibold text-neutral-600 block mb-2">Rotation Offsets (Rad)</span>
+                  {['rx', 'ry', 'rz'].map((axis) => (
+                    <div key={`rot-${axis}`} className="flex items-center gap-3">
+                      <span className="text-xs font-medium text-neutral-500 w-4 uppercase">{axis.replace('r', '')}</span>
+                      <input
+                        type="range"
+                        min="-3.14"
+                        max="3.14"
+                        step="0.05"
+                        value={itemOverrides[selectedPiece]?.[axis as keyof typeof itemOverrides[0]] ?? 0}
+                        onChange={(e) => handleOverrideChange(selectedPiece, axis, parseFloat(e.target.value))}
+                        className="w-full accent-indigo-600"
+                      />
+                      <span className="text-xs text-neutral-500 font-mono w-8 text-right">
+                        {(itemOverrides[selectedPiece]?.[axis as keyof typeof itemOverrides[0]] ?? 0).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="h-px bg-neutral-100" />
+
           {/* Background Setup */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider">Background Setup</h3>
@@ -424,6 +536,50 @@ export default function App() {
                 onChange={(e) => setLightRotation(parseFloat(e.target.value))}
                 className="w-full accent-indigo-600"
               />
+            </div>
+          </div>
+
+          <div className="h-px bg-neutral-100" />
+
+          {/* Camera Controls */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
+              <Camera className="w-4 h-4" /> Camera Setup
+            </h3>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-700">Quick Angles</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['front', 'top', 'side', 'isometric'] as const).map(preset => (
+                  <button
+                    key={preset}
+                    onClick={() => triggerCamera(preset)}
+                    className="py-1.5 text-xs font-medium rounded border transition-colors capitalize bg-white border-neutral-200 text-neutral-600 hover:border-indigo-300 hover:bg-indigo-50"
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium text-neutral-700">Field of View (FOV)</label>
+                <span className="text-xs text-neutral-500 font-mono">{cameraFov}°</span>
+              </div>
+              <input
+                type="range"
+                min="10"
+                max="100"
+                step="1"
+                value={cameraFov}
+                onChange={(e) => setCameraFov(parseInt(e.target.value))}
+                className="w-full accent-indigo-600"
+              />
+              <div className="flex justify-between text-[10px] text-neutral-400">
+                <span>Zoom (Telephoto)</span>
+                <span>Wide Angle</span>
+              </div>
             </div>
           </div>
 
@@ -557,11 +713,17 @@ export default function App() {
           animationSpeed={animationSpeed}
           animationType={animationType}
           animationScope={animationScope}
+          cameraFov={cameraFov}
+          cameraTrigger={cameraTrigger}
+          itemOverrides={itemOverrides}
+          onItemDrag={handleItemDrag}
         />
         
         {/* Helper overlay */}
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium flex items-center space-x-2">
-          <span>Drag to rotate</span>
+          <span>Click & Drag a piece to move it</span>
+          <span className="opacity-50">•</span>
+          <span>Drag background to rotate</span>
           <span className="opacity-50">•</span>
           <span>Scroll to zoom</span>
         </div>

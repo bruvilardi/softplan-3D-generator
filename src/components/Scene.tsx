@@ -1,6 +1,6 @@
-import { useMemo, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Environment, ContactShadows, Center } from '@react-three/drei';
+import { useMemo, useRef, useEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, Environment, ContactShadows, Center, DragControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { Softpoint } from './Softpoint';
 import { BrandLogo } from './BrandLogo';
@@ -28,6 +28,45 @@ interface SceneProps {
   animationSpeed?: number;
   animationType?: 'rotate' | 'zoom-in' | 'zoom-out' | 'float' | 'tumble' | 'swing' | 'all';
   animationScope?: 'group' | 'individual';
+  cameraFov?: number;
+  cameraTrigger?: { id: number, preset: string };
+  itemOverrides?: Record<number, { x: number, y: number, z: number, rx: number, ry: number, rz: number }>;
+  onItemDrag?: (index: number, x: number, y: number, z: number) => void;
+}
+
+function CameraController({ fov, trigger }: { fov: number, trigger?: { id: number, preset: string } }) {
+  const { camera, controls } = useThree();
+
+  useEffect(() => {
+    if (camera instanceof THREE.PerspectiveCamera) {
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+    }
+  }, [fov, camera]);
+
+  useEffect(() => {
+    if (!trigger || !controls) return;
+    
+    const p = trigger.preset;
+    const targetPos = new THREE.Vector3();
+    
+    if (p === 'isometric') {
+      targetPos.set(6, 6, 6);
+    } else if (p === 'front') {
+      targetPos.set(0, 0, 8);
+    } else if (p === 'top') {
+      targetPos.set(0, 10, 0);
+    } else if (p === 'side') {
+      targetPos.set(8, 0, 0);
+    }
+    
+    camera.position.copy(targetPos);
+    camera.lookAt(0, 0, 0);
+    (controls as any).target.set(0, 0, 0);
+    (controls as any).update();
+  }, [trigger, camera, controls]);
+
+  return null;
 }
 
 function AnimatedItem({
@@ -114,6 +153,32 @@ function AnimatedItem({
   );
 }
 
+function DraggableItemWrapper({ index, pos, basePos, onItemDrag, children }: any) {
+  const groupRef = useRef<THREE.Group>(null);
+  
+  return (
+    <DragControls
+      onDragEnd={() => {
+        if (groupRef.current && onItemDrag) {
+          const newX = groupRef.current.position.x;
+          const newY = groupRef.current.position.y;
+          const newZ = groupRef.current.position.z;
+          
+          const overrideX = newX - basePos[0];
+          const overrideY = newY - basePos[1];
+          const overrideZ = newZ - basePos[2];
+          
+          onItemDrag(index, overrideX, overrideY, overrideZ);
+        }
+      }}
+    >
+      <group ref={groupRef} position={pos}>
+        {children}
+      </group>
+    </DragControls>
+  );
+}
+
 function InnerScene({
   shapeType,
   layoutMode,
@@ -129,6 +194,8 @@ function InnerScene({
   animationSpeed = 1,
   animationType = 'rotate',
   animationScope = 'group',
+  itemOverrides = {},
+  onItemDrag,
 }: Partial<SceneProps>) {
   const groupRef = useRef<THREE.Group>(null);
   
@@ -244,44 +311,66 @@ function InnerScene({
             rotY = rnd.ry;
             rotZ = rnd.rz;
           }
+          
+          if (itemOverrides[i]) {
+            const over = itemOverrides[i];
+            posX += over.x;
+            posY += over.y;
+            posZ += over.z;
+            rotX += over.rx;
+            rotY += over.ry;
+            rotZ += over.rz;
+          }
 
           const pos: [number, number, number] = [posX, posY, posZ];
           const rot: [number, number, number] = [rotX, rotY, rotZ];
 
+          // Compute the base layout position (without overrides) to calculate offset later
+          const basePosX = posX - (itemOverrides[i]?.x || 0);
+          const basePosY = posY - (itemOverrides[i]?.y || 0);
+          const basePosZ = posZ - (itemOverrides[i]?.z || 0);
+
           return (
-            <AnimatedItem
+            <DraggableItemWrapper
               key={i}
               index={i}
-              basePosition={pos}
-              baseRotation={rot}
-              animate={animate || false}
-              animationSpeed={animationSpeed}
-              animationType={animationType}
-              animationScope={animationScope}
+              pos={pos}
+              basePos={[basePosX, basePosY, basePosZ]}
+              onItemDrag={onItemDrag}
             >
-              {shapeType === 'logo' ? (
-                <BrandLogo
-                  position={[0, 0, 0]}
-                  rotation={[0, 0, 0]}
-                  thickness={thickness || 0.5}
-                  color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : (color || '#5c5cff')}
-                  transmission={transmission}
-                  roughness={roughness}
-                  bevelSize={0.05}
-                />
-              ) : (
-                <Softpoint
-                  position={[0, 0, 0]}
-                  rotation={[0, 0, 0]}
-                  thickness={thickness || 0.5}
-                  radius={radius || 0.4}
-                  color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : (color || '#5c5cff')}
-                  transmission={transmission}
-                  roughness={roughness}
-                  bevelSize={0.05}
-                />
-              )}
-            </AnimatedItem>
+              <AnimatedItem
+                index={i}
+                basePosition={[0, 0, 0]}
+                baseRotation={rot}
+                animate={animate || false}
+                animationSpeed={animationSpeed}
+                animationType={animationType}
+                animationScope={animationScope}
+              >
+                {shapeType === 'logo' ? (
+                  <BrandLogo
+                    position={[0, 0, 0]}
+                    rotation={[0, 0, 0]}
+                    thickness={thickness || 0.5}
+                    color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : (color || '#5c5cff')}
+                    transmission={transmission}
+                    roughness={roughness}
+                    bevelSize={0.05}
+                  />
+                ) : (
+                  <Softpoint
+                    position={[0, 0, 0]}
+                    rotation={[0, 0, 0]}
+                    thickness={thickness || 0.5}
+                    radius={radius || 0.4}
+                    color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : (color || '#5c5cff')}
+                    transmission={transmission}
+                    roughness={roughness}
+                    bevelSize={0.05}
+                  />
+                )}
+              </AnimatedItem>
+            </DraggableItemWrapper>
           );
         })}
       </group>
@@ -309,9 +398,13 @@ export function Scene({
   animationSpeed = 1,
   animationType = 'rotate',
   animationScope = 'group',
+  cameraFov = 45,
+  cameraTrigger,
+  itemOverrides = {},
 }: SceneProps) {
   return (
-    <Canvas gl={{ preserveDrawingBuffer: true, alpha: true }} camera={{ position: [0, 0, 8], fov: 45 }} shadows>
+    <Canvas gl={{ preserveDrawingBuffer: true, alpha: true }} camera={{ position: [0, 0, 8], fov: cameraFov }} shadows>
+      <CameraController fov={cameraFov} trigger={cameraTrigger} />
       {!transparentBg && <color attach="background" args={[bgColor]} />}
       
       {/* Lighting to make the glass look good */}
@@ -342,6 +435,7 @@ export function Scene({
         animationSpeed={animationSpeed}
         animationType={animationType}
         animationScope={animationScope}
+        itemOverrides={itemOverrides}
       />
 
       {/* Ground shadow (hidden when exporting with transparent bg) */}
