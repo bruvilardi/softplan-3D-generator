@@ -11,6 +11,7 @@ interface SoftpointProps {
   bevelSize?: number;
   position?: [number, number, number];
   rotation?: [number, number, number];
+  bgColor?: string;
 }
 
 export function Softpoint({
@@ -22,6 +23,7 @@ export function Softpoint({
   bevelSize = 0.05,
   position = [0, 0, 0],
   rotation = [0, 0, 0],
+  bgColor = '#ffffff',
 }: SoftpointProps) {
   const geometry = useMemo(() => {
     const shape = new THREE.Shape();
@@ -74,6 +76,7 @@ export function Softpoint({
         clearcoatRoughness={0}
         envMapIntensity={2}
         side={THREE.DoubleSide}
+        background={new THREE.Color(bgColor)}
       />
     </mesh>
   );

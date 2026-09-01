@@ -10,6 +10,7 @@ interface BrandLogoProps {
   bevelSize?: number;
   position?: [number, number, number];
   rotation?: [number, number, number];
+  bgColor?: string;
 }
 
 export function BrandLogo({
@@ -20,6 +21,7 @@ export function BrandLogo({
   bevelSize = 0.05,
   position = [0, 0, 0],
   rotation = [0, 0, 0],
+  bgColor = '#ffffff',
 }: BrandLogoProps) {
   const geometry = useMemo(() => {
     const sShape = new THREE.Shape();
@@ -105,6 +107,7 @@ export function BrandLogo({
         clearcoatRoughness={0}
         envMapIntensity={2}
         side={THREE.DoubleSide}
+        background={new THREE.Color(bgColor)}
       />
     </mesh>
   );

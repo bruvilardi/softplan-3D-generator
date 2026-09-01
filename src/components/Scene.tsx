@@ -32,6 +32,11 @@ interface SceneProps {
   cameraTrigger?: { id: number, preset: string };
   itemOverrides?: Record<number, { x: number, y: number, z: number, rx: number, ry: number, rz: number }>;
   onItemDrag?: (index: number, x: number, y: number, z: number) => void;
+  circleTilt?: number;
+  bendAngle?: number;
+  waveAmplitude?: number;
+  waveFrequency?: number;
+  alignmentAxis?: 'x' | 'y' | 'z';
 }
 
 function CameraController({ fov, trigger }: { fov: number, trigger?: { id: number, preset: string } }) {
@@ -190,12 +195,18 @@ function InnerScene({
   color,
   transmission,
   roughness,
+  bgColor,
   animate,
   animationSpeed = 1,
   animationType = 'rotate',
   animationScope = 'group',
   itemOverrides = {},
   onItemDrag,
+  circleTilt = 0,
+  bendAngle = 0,
+  waveAmplitude = 0,
+  waveFrequency = 1,
+  alignmentAxis = 'x',
 }: Partial<SceneProps>) {
   const groupRef = useRef<THREE.Group>(null);
   
@@ -278,15 +289,49 @@ function InnerScene({
 
   return (
     <Center>
-      <group ref={groupRef}>
-        {items.map((_, i) => {
+      <group rotation={layoutMode === 'radial' ? [(circleTilt || 0) * Math.PI / 180, 0, 0] : [0, 0, 0]}>
+        <group ref={groupRef}>
+          {items.map((_, i) => {
           let posX = 0, posY = 0, posZ = 0;
           let rotX = 0, rotY = 0, rotZ = 0;
           
           const gap = (spacing || 0) * 3.5;
 
           if (layoutMode === 'linear') {
-            posZ = (i - ((quantity || 1) - 1) / 2) * gap;
+            const L = ((quantity || 1) - 1) * gap;
+            const s = (i - ((quantity || 1) - 1) / 2) * gap;
+
+            if (bendAngle && bendAngle > 0 && L > 0) {
+              const theta_total = (bendAngle * Math.PI) / 180;
+              const R = L / theta_total;
+              const theta = (s / L) * theta_total;
+              
+              if (alignmentAxis === 'z') {
+                posZ = R * Math.sin(theta);
+                posX = R * Math.cos(theta) - R;
+                rotY = -theta;
+              } else if (alignmentAxis === 'y') {
+                posY = R * Math.sin(theta);
+                posX = R * Math.cos(theta) - R;
+                rotZ = theta;
+              } else {
+                posX = R * Math.sin(theta);
+                posZ = R * Math.cos(theta) - R;
+                rotY = theta;
+              }
+            } else {
+              if (alignmentAxis === 'z') posZ = s;
+              else if (alignmentAxis === 'y') posY = -s;
+              else posX = s;
+            }
+
+            if (waveAmplitude && waveAmplitude > 0) {
+              const freq = (waveFrequency || 1) * Math.PI * 2 / (L || 1);
+              const waveOff = Math.sin(s * freq) * waveAmplitude;
+              if (alignmentAxis === 'y') posX += waveOff;
+              else posY += waveOff;
+            }
+
             rotZ = ((twistAngle || 0) * Math.PI) / 180 * i;
           } else if (layoutMode === 'grid') {
             const cols = Math.ceil(Math.sqrt(quantity || 1));
@@ -356,6 +401,7 @@ function InnerScene({
                     transmission={transmission}
                     roughness={roughness}
                     bevelSize={0.05}
+                    bgColor={bgColor}
                   />
                 ) : (
                   <Softpoint
@@ -367,12 +413,14 @@ function InnerScene({
                     transmission={transmission}
                     roughness={roughness}
                     bevelSize={0.05}
+                    bgColor={bgColor}
                   />
                 )}
               </AnimatedItem>
             </DraggableItemWrapper>
           );
         })}
+        </group>
       </group>
     </Center>
   );
@@ -401,6 +449,12 @@ export function Scene({
   cameraFov = 45,
   cameraTrigger,
   itemOverrides = {},
+  onItemDrag,
+  circleTilt = 0,
+  bendAngle = 0,
+  waveAmplitude = 0,
+  waveFrequency = 1,
+  alignmentAxis = 'x',
 }: SceneProps) {
   return (
     <Canvas gl={{ preserveDrawingBuffer: true, alpha: true }} camera={{ position: [0, 0, 8], fov: cameraFov }} shadows>
@@ -431,11 +485,18 @@ export function Scene({
         color={color}
         transmission={transmission}
         roughness={roughness}
+        bgColor={bgColor}
         animate={animate}
         animationSpeed={animationSpeed}
         animationType={animationType}
         animationScope={animationScope}
         itemOverrides={itemOverrides}
+        onItemDrag={onItemDrag}
+        circleTilt={circleTilt}
+        bendAngle={bendAngle}
+        waveAmplitude={waveAmplitude}
+        waveFrequency={waveFrequency}
+        alignmentAxis={alignmentAxis}
       />
 
       {/* Ground shadow (hidden when exporting with transparent bg) */}

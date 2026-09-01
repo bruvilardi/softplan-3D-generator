@@ -5,7 +5,7 @@
 
 import { useState, useRef } from 'react';
 import { Scene, ShapeType, LayoutMode } from './components/Scene';
-import { Settings2, Square, Type, List, LayoutGrid, Circle, Sparkles, Download, Video, Camera, Play, Pause } from 'lucide-react';
+import { Settings2, GripHorizontal, GripVertical, Layers, Square, Type, List, LayoutGrid, Circle, Sparkles, Download, Video, Camera, Play, Pause } from 'lucide-react';
 
 export default function App() {
   const [shapeType, setShapeType] = useState<ShapeType>('softpoint');
@@ -22,6 +22,11 @@ export default function App() {
   const [lightRotation, setLightRotation] = useState(0);
   const [environmentPreset, setEnvironmentPreset] = useState('studio');
   const [bgColor, setBgColor] = useState('#e8e8ed'); // New background color state
+  const [circleTilt, setCircleTilt] = useState(0); // For tilting radial layout
+  const [bendAngle, setBendAngle] = useState(0); // Bend line into arc/circle
+  const [waveAmplitude, setWaveAmplitude] = useState(0); // Sine wave amplitude
+  const [waveFrequency, setWaveFrequency] = useState(1); // Sine wave frequency
+  const [alignmentAxis, setAlignmentAxis] = useState<'x' | 'y' | 'z'>('x'); // Linear alignment axis
 
   // New state for animation & export
   const [animate, setAnimate] = useState(false);
@@ -364,6 +369,101 @@ export default function App() {
                 className="w-full accent-indigo-600"
               />
             </div>
+
+            {layoutMode === 'linear' && (
+              <>
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-neutral-700">Alignment Axis</label>
+                  <div className="grid grid-cols-3 gap-2 p-1 bg-neutral-100 rounded-lg border border-neutral-200">
+                    <button
+                      onClick={() => setAlignmentAxis('x')}
+                      className={`flex items-center justify-center p-2 rounded-md transition-all ${alignmentAxis === 'x' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-neutral-500 hover:text-neutral-700'}`}
+                      title="Side by Side (X-Axis)"
+                    >
+                      <GripHorizontal className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setAlignmentAxis('y')}
+                      className={`flex items-center justify-center p-2 rounded-md transition-all ${alignmentAxis === 'y' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-neutral-500 hover:text-neutral-700'}`}
+                      title="Stacked Vertically (Y-Axis)"
+                    >
+                      <GripVertical className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setAlignmentAxis('z')}
+                      className={`flex items-center justify-center p-2 rounded-md transition-all ${alignmentAxis === 'z' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-neutral-500 hover:text-neutral-700'}`}
+                      title="Depth / One behind another (Z-Axis)"
+                    >
+                      <Layers className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-neutral-700">Bend (Curvatura)</label>
+                    <span className="text-xs text-neutral-500 font-mono">{bendAngle}°</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="360"
+                    step="1"
+                    value={bendAngle}
+                    onChange={(e) => setBendAngle(parseInt(e.target.value))}
+                    className="w-full accent-indigo-600"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-neutral-700">Wave (Onda)</label>
+                    <span className="text-xs text-neutral-500 font-mono">{waveAmplitude}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    value={waveAmplitude}
+                    onChange={(e) => setWaveAmplitude(parseFloat(e.target.value))}
+                    className="w-full accent-indigo-600"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-neutral-700">Wave Freq (Frequência)</label>
+                    <span className="text-xs text-neutral-500 font-mono">{waveFrequency}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="0.5"
+                    value={waveFrequency}
+                    onChange={(e) => setWaveFrequency(parseFloat(e.target.value))}
+                    className="w-full accent-indigo-600"
+                  />
+                </div>
+              </>
+            )}
+
+            {layoutMode === 'radial' && (
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium text-neutral-700">Circle Tilt (Inclinação)</label>
+                  <span className="text-xs text-neutral-500 font-mono">{circleTilt}°</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="90"
+                  step="1"
+                  value={circleTilt}
+                  onChange={(e) => setCircleTilt(parseInt(e.target.value))}
+                  className="w-full accent-indigo-600"
+                />
+              </div>
+            )}
 
             <div className="space-y-3">
               <div className="flex justify-between items-center">
@@ -717,6 +817,11 @@ export default function App() {
           cameraTrigger={cameraTrigger}
           itemOverrides={itemOverrides}
           onItemDrag={handleItemDrag}
+          circleTilt={circleTilt}
+          bendAngle={bendAngle}
+          waveAmplitude={waveAmplitude}
+          waveFrequency={waveFrequency}
+          alignmentAxis={alignmentAxis}
         />
         
         {/* Helper overlay */}
