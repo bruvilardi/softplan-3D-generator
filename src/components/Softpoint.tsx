@@ -52,10 +52,11 @@ export function Softpoint({
       bevelEnabled: true,
       bevelThickness: bevelSize,
       bevelSize: bevelSize,
-      bevelSegments: 16, // High segments for smooth glass look
-      curveSegments: 32, // High segments for smooth corners
+      bevelSegments: 32, // High segments for smooth glass look
+      curveSegments: 128, // High segments for smooth corners
     });
     geo.center();
+    geo.computeVertexNormals(); // Ensure smooth shading
     return geo;
   }, [thickness, radius, bevelSize]);
 

@@ -81,12 +81,14 @@ export function BrandLogo({
       bevelEnabled: true,
       bevelThickness: bevelSize / scale,
       bevelSize: bevelSize / scale,
-      bevelSegments: 16,
-      curveSegments: 32,
+      bevelSegments: 32,
+      curveSegments: 128,
+      steps: 2,
     });
     
     geo.scale(scale, scale, scale);
     geo.center();
+    geo.computeVertexNormals();
     return geo;
   }, [thickness, bevelSize]);
 
