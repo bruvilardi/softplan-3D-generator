@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { Softpoint } from './Softpoint';
 import { BrandLogo } from './BrandLogo';
 
-export type ShapeType = 'softpoint' | 'logo';
+export type ShapeType = 'softpoint' | 'logo' | 'mixed';
 export type LayoutMode = 'linear' | 'grid' | 'radial' | 'random';
 
 interface SceneProps {
@@ -29,6 +29,9 @@ interface SceneProps {
   animationType?: 'rotate' | 'zoom-in' | 'zoom-out' | 'float' | 'tumble' | 'swing' | 'all';
   animationScope?: 'group' | 'individual';
   cameraFov?: number;
+  cameraDistance?: number;
+  autoRotate?: boolean;
+  autoRotateSpeed?: number;
   cameraTrigger?: { id: number, preset: string };
   itemOverrides?: Record<number, { x: number, y: number, z: number, rx: number, ry: number, rz: number }>;
   onItemDrag?: (index: number, x: number, y: number, z: number) => void;
@@ -63,6 +66,12 @@ function CameraController({ fov, trigger }: { fov: number, trigger?: { id: numbe
       targetPos.set(0, 10, 0);
     } else if (p === 'side') {
       targetPos.set(8, 0, 0);
+    } else if (p === 'bottom') {
+      targetPos.set(0, -10, 0);
+    } else if (p === 'back') {
+      targetPos.set(0, 0, -8);
+    } else if (p === 'close-up') {
+      targetPos.set(0, 0, 3);
     }
     
     camera.position.copy(targetPos);
@@ -392,12 +401,12 @@ function InnerScene({
                 animationType={animationType}
                 animationScope={animationScope}
               >
-                {shapeType === 'logo' ? (
+                {(shapeType === 'mixed' ? (i % 2 === 0 ? 'softpoint' : 'logo') : shapeType) === 'logo' ? (
                   <BrandLogo
                     position={[0, 0, 0]}
                     rotation={[0, 0, 0]}
                     thickness={thickness || 0.5}
-                    color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : (color || '#5c5cff')}
+                    color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : color}
                     transmission={transmission}
                     roughness={roughness}
                     bevelSize={0.05}
@@ -409,7 +418,7 @@ function InnerScene({
                     rotation={[0, 0, 0]}
                     thickness={thickness || 0.5}
                     radius={radius || 0.4}
-                    color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : (color || '#5c5cff')}
+                    color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : color}
                     transmission={transmission}
                     roughness={roughness}
                     bevelSize={0.05}
@@ -447,6 +456,8 @@ export function Scene({
   animationType = 'rotate',
   animationScope = 'group',
   cameraFov = 45,
+  autoRotate = false,
+  autoRotateSpeed = 2,
   cameraTrigger,
   itemOverrides = {},
   onItemDrag,
@@ -457,7 +468,7 @@ export function Scene({
   alignmentAxis = 'x',
 }: SceneProps) {
   return (
-    <Canvas gl={{ preserveDrawingBuffer: true, alpha: true }} camera={{ position: [0, 0, 8], fov: cameraFov }} shadows>
+    <Canvas gl={{ preserveDrawingBuffer: true, alpha: true, antialias: true, powerPreference: "high-performance" }} dpr={[1.5, 2]} camera={{ position: [0, 0, 8], fov: cameraFov }} shadows>
       <CameraController fov={cameraFov} trigger={cameraTrigger} />
       {!transparentBg && <color attach="background" args={[bgColor]} />}
       
@@ -511,7 +522,7 @@ export function Scene({
         />
       )}
 
-      <OrbitControls makeDefault minDistance={3} maxDistance={40} />
+      <OrbitControls makeDefault minDistance={1} maxDistance={40} autoRotate={autoRotate} autoRotateSpeed={autoRotateSpeed} />
     </Canvas>
   );
 }

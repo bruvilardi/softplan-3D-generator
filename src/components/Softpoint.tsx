@@ -66,17 +66,21 @@ export function Softpoint({
         transmission={transmission}
         transparent={true}
         opacity={1}
-        metalness={0.02}
+        metalness={0.05}
         roughness={roughness}
         ior={1.55}
         thickness={thickness > 0 ? thickness * 1.5 : 0.5}
         attenuationColor={color}
-        attenuationDistance={0.25}
+        attenuationDistance={0.5}
         clearcoat={1}
-        clearcoatRoughness={0}
-        envMapIntensity={2}
+        clearcoatRoughness={0.1}
+        envMapIntensity={2.5}
         side={THREE.DoubleSide}
         background={new THREE.Color(bgColor)}
+        resolution={1024}
+        samples={16}
+        chromaticAberration={0.03}
+        anisotropy={0.1}
       />
     </mesh>
   );

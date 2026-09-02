@@ -34,6 +34,8 @@ export default function App() {
   const [animationType, setAnimationType] = useState<'rotate' | 'zoom-in' | 'zoom-out' | 'float' | 'tumble' | 'swing' | 'all'>('rotate');
   const [animationScope, setAnimationScope] = useState<'group' | 'individual'>('group');
   const [cameraFov, setCameraFov] = useState(45);
+  const [cameraAutoRotate, setCameraAutoRotate] = useState(false);
+  const [cameraAutoRotateSpeed, setCameraAutoRotateSpeed] = useState(2);
   const [cameraTrigger, setCameraTrigger] = useState<{ id: number, preset: string } | undefined>(undefined);
   const [transparentBg, setTransparentBg] = useState(false);
   const [recordingMode, setRecordingMode] = useState<'none' | 'solid' | 'transparent'>('none');
@@ -125,7 +127,11 @@ export default function App() {
           }
         }
         
-        mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
+        // Use high bitrate for quality (25 Mbps)
+        mediaRecorderRef.current = new MediaRecorder(stream, { 
+          mimeType,
+          videoBitsPerSecond: 25000000 
+        });
         chunksRef.current = [];
         
         mediaRecorderRef.current.ondataavailable = (e) => {
@@ -172,20 +178,27 @@ export default function App() {
           {/* Format Control */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider">Formato (Format)</h3>
-            <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-100 rounded-lg border border-neutral-200">
+            <div className="grid grid-cols-3 gap-2 p-1 bg-neutral-100 rounded-lg border border-neutral-200">
               <button
                 onClick={() => setShapeType('softpoint')}
                 className={`flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-all ${shapeType === 'softpoint' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-neutral-500 hover:text-neutral-700'}`}
+                title="Apenas Softpoints"
               >
                 <Square className="w-4 h-4" />
-                <span>Softpoint</span>
               </button>
               <button
                 onClick={() => setShapeType('logo')}
                 className={`flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-all ${shapeType === 'logo' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-neutral-500 hover:text-neutral-700'}`}
+                title="Apenas Logo 'S'"
               >
                 <Type className="w-4 h-4" />
-                <span>Logo 'S'</span>
+              </button>
+              <button
+                onClick={() => setShapeType('mixed')}
+                className={`flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-all ${shapeType === 'mixed' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-neutral-500 hover:text-neutral-700'}`}
+                title="Mistura (Softpoint + Logo)"
+              >
+                <Layers className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -650,7 +663,7 @@ export default function App() {
             <div className="space-y-2">
               <label className="text-sm font-medium text-neutral-700">Quick Angles</label>
               <div className="grid grid-cols-2 gap-2">
-                {(['front', 'top', 'side', 'isometric'] as const).map(preset => (
+                {(['front', 'top', 'side', 'isometric', 'bottom', 'back', 'close-up'] as const).map(preset => (
                   <button
                     key={preset}
                     onClick={() => triggerCamera(preset)}
@@ -679,6 +692,38 @@ export default function App() {
               <div className="flex justify-between text-[10px] text-neutral-400">
                 <span>Zoom (Telephoto)</span>
                 <span>Wide Angle</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium text-neutral-700">Auto-Rotate View</label>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="autoRotate"
+                    checked={cameraAutoRotate}
+                    onChange={(e) => setCameraAutoRotate(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 border-neutral-300 rounded focus:ring-indigo-500"
+                  />
+                  <label htmlFor="autoRotate" className="ml-2 text-xs text-neutral-600">Enable</label>
+                </div>
+              </div>
+              
+              <div className={`space-y-1 transition-opacity ${!cameraAutoRotate ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-neutral-500">Speed</span>
+                  <span className="text-xs text-neutral-500 font-mono">{cameraAutoRotateSpeed}x</span>
+                </div>
+                <input
+                  type="range"
+                  min="-10"
+                  max="10"
+                  step="0.5"
+                  value={cameraAutoRotateSpeed}
+                  onChange={(e) => setCameraAutoRotateSpeed(parseFloat(e.target.value))}
+                  className="w-full accent-indigo-600"
+                />
               </div>
             </div>
           </div>
@@ -814,6 +859,8 @@ export default function App() {
           animationType={animationType}
           animationScope={animationScope}
           cameraFov={cameraFov}
+          autoRotate={cameraAutoRotate}
+          autoRotateSpeed={cameraAutoRotateSpeed}
           cameraTrigger={cameraTrigger}
           itemOverrides={itemOverrides}
           onItemDrag={handleItemDrag}
