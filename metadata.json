@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "Softpoint 3D Studio",
+  "description": "Estúdio 3D interativo da Softplan para composição de marcas e geração de elementos 3D por IA no mesmo material esmaltado sólido.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

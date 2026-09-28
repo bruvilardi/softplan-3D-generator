@@ -4,11 +4,17 @@
  */
 
 import { useState, useRef } from 'react';
+import * as THREE from 'three';
 import { Scene, ShapeType, LayoutMode } from './components/Scene';
-import { Settings2, GripHorizontal, GripVertical, Layers, Square, Type, List, LayoutGrid, Circle, Sparkles, Download, Video, Camera, Play, Pause } from 'lucide-react';
+import { Settings2, GripHorizontal, GripVertical, Layers, Square, Type, List, LayoutGrid, Circle, Sparkles, Download, Video, Camera, Play, Pause, Loader2, RefreshCw, Upload, X } from 'lucide-react';
+import { Custom3DModel } from './types/custom3D';
 
 export default function App() {
   const [shapeType, setShapeType] = useState<ShapeType>('softpoint');
+  const [customModel, setCustomModel] = useState<Custom3DModel | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('linear');
   const [quantity, setQuantity] = useState(1);
   const [thickness, setThickness] = useState(0.5);
@@ -16,8 +22,6 @@ export default function App() {
   const [twistAngle, setTwistAngle] = useState(0);
   const [spacing, setSpacing] = useState(0.8);
   const [color, setColor] = useState('#5c5cff'); // Default brand color
-  const [transmission, setTransmission] = useState(1); // Glassiness
-  const [roughness, setRoughness] = useState(0); // Frosted/Clear
   const [ambientIntensity, setAmbientIntensity] = useState(0.4);
   const [lightRotation, setLightRotation] = useState(0);
   const [environmentPreset, setEnvironmentPreset] = useState('studio');
@@ -69,6 +73,83 @@ export default function App() {
 
   const triggerCamera = (preset: string) => {
     setCameraTrigger({ id: Date.now(), preset });
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!file) return;
+    setIsUploading(true);
+    setGenerationError(null);
+
+    try {
+      const fileNameLower = file.name.toLowerCase();
+      if (fileNameLower.endsWith('.glb') || fileNameLower.endsWith('.gltf')) {
+        const buffer = await file.arrayBuffer();
+        const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+        const loader = new GLTFLoader();
+        loader.parse(
+          buffer,
+          '',
+          (gltf) => {
+            const obj = gltf.scene;
+            const bbox = new THREE.Box3().setFromObject(obj);
+            const center = bbox.getCenter(new THREE.Vector3());
+            const size = bbox.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z) || 1;
+            const scale = 2.4 / maxDim;
+            obj.position.sub(center.multiplyScalar(scale));
+            obj.scale.multiplyScalar(scale);
+
+            const uploaded: Custom3DModel = {
+              id: `upload-${Date.now()}`,
+              name: file.name.replace(/\.[^/.]+$/, ''),
+              prompt: file.name,
+              description: `Modelo 3D importado: ${file.name}`,
+              parts: [],
+              importedScene: obj,
+            };
+            setCustomModel(uploaded);
+            setShapeType('custom');
+            setIsUploading(false);
+          },
+          (err) => {
+            console.error(err);
+            setGenerationError('Falha ao processar arquivo 3D GLB/GLTF.');
+            setIsUploading(false);
+          }
+        );
+      } else if (fileNameLower.endsWith('.obj')) {
+        const text = await file.text();
+        const { OBJLoader } = await import('three/examples/jsm/loaders/OBJLoader.js');
+        const loader = new OBJLoader();
+        const obj = loader.parse(text);
+        const bbox = new THREE.Box3().setFromObject(obj);
+        const center = bbox.getCenter(new THREE.Vector3());
+        const size = bbox.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        const scale = 2.4 / maxDim;
+        obj.position.sub(center.multiplyScalar(scale));
+        obj.scale.multiplyScalar(scale);
+
+        const uploaded: Custom3DModel = {
+          id: `upload-${Date.now()}`,
+          name: file.name.replace(/\.[^/.]+$/, ''),
+          prompt: file.name,
+          description: `Modelo 3D importado: ${file.name}`,
+          parts: [],
+          importedScene: obj,
+        };
+        setCustomModel(uploaded);
+        setShapeType('custom');
+        setIsUploading(false);
+      } else {
+        setGenerationError('Formato não suportado. Por favor, envie arquivos .glb, .gltf ou .obj');
+        setIsUploading(false);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setGenerationError('Erro ao carregar o arquivo 3D.');
+      setIsUploading(false);
+    }
   };
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -177,97 +258,155 @@ export default function App() {
           
           {/* Format Control */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider">Formato (Format)</h3>
-            <div className="grid grid-cols-3 gap-2 p-1 bg-neutral-100 rounded-lg border border-neutral-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider">Formato (Format)</h3>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".glb,.gltf,.obj"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileUpload(file);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="flex items-center space-x-1.5 py-1 px-2.5 bg-neutral-100 hover:bg-indigo-50 text-neutral-700 hover:text-indigo-700 border border-neutral-200 hover:border-indigo-300 rounded-md text-xs font-medium transition-all shadow-xs"
+                title="Importar modelo 3D próprio (.glb, .gltf, .obj)"
+              >
+                {isUploading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                ) : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload 3D</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {generationError && (
+              <p className="text-[11px] text-red-600 bg-red-50 p-2 rounded border border-red-200">
+                {generationError}
+              </p>
+            )}
+
+            <div className={`grid ${customModel ? 'grid-cols-4' : 'grid-cols-3'} gap-1.5 p-1 bg-neutral-100 rounded-lg border border-neutral-200`}>
               <button
                 onClick={() => setShapeType('softpoint')}
-                className={`flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-all ${shapeType === 'softpoint' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-neutral-500 hover:text-neutral-700'}`}
+                className={`flex items-center justify-center space-x-1 py-2 px-2 rounded-md text-xs font-medium transition-all ${shapeType === 'softpoint' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5 font-semibold' : 'text-neutral-500 hover:text-neutral-700'}`}
                 title="Apenas Softpoints"
               >
-                <Square className="w-4 h-4" />
+                <Square className="w-3.5 h-3.5" />
+                <span>Soft</span>
               </button>
               <button
                 onClick={() => setShapeType('logo')}
-                className={`flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-all ${shapeType === 'logo' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-neutral-500 hover:text-neutral-700'}`}
+                className={`flex items-center justify-center space-x-1 py-2 px-2 rounded-md text-xs font-medium transition-all ${shapeType === 'logo' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5 font-semibold' : 'text-neutral-500 hover:text-neutral-700'}`}
                 title="Apenas Logo 'S'"
               >
-                <Type className="w-4 h-4" />
+                <Type className="w-3.5 h-3.5" />
+                <span>Logo</span>
               </button>
               <button
                 onClick={() => setShapeType('mixed')}
-                className={`flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-all ${shapeType === 'mixed' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-neutral-500 hover:text-neutral-700'}`}
+                className={`flex items-center justify-center space-x-1 py-2 px-2 rounded-md text-xs font-medium transition-all ${shapeType === 'mixed' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5 font-semibold' : 'text-neutral-500 hover:text-neutral-700'}`}
                 title="Mistura (Softpoint + Logo)"
               >
-                <Layers className="w-4 h-4" />
+                <Layers className="w-3.5 h-3.5" />
+                <span>Misto</span>
               </button>
+              {customModel && (
+                <div className="relative flex items-center">
+                  <button
+                    onClick={() => setShapeType('custom')}
+                    className={`w-full flex items-center justify-center space-x-1 py-2 pl-2 pr-5 rounded-md text-xs font-medium transition-all ${shapeType === 'custom' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5 font-semibold' : 'text-neutral-500 hover:text-neutral-700'}`}
+                    title={`Modelo 3D Importado: ${customModel.name}`}
+                  >
+                    <Upload className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span className="truncate max-w-[50px]">{customModel.name}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCustomModel(null);
+                      if (shapeType === 'custom') setShapeType('softpoint');
+                    }}
+                    className="absolute right-1 p-0.5 text-neutral-400 hover:text-red-500 rounded transition-colors"
+                    title="Remover modelo importado"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="h-px bg-neutral-100" />
 
-          {/* Material Setup */}
-          <div className="space-y-5">
-            <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider">Material Setup</h3>
-            <div className="flex items-center space-x-3">
-              <div className="flex-1 grid grid-cols-3 gap-2">
+          {/* Material & Color */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider">Material & Cor</h3>
+              <span className="text-[10px] uppercase font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                Brilhoso Sólido
+              </span>
+            </div>
+
+            {/* Colors */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">Cores</label>
+              <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={() => setColor('#5c5cff')}
-                  className={`w-full py-2 rounded-md shadow-sm border transition-all flex items-center justify-center ${color === '#5c5cff' ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-neutral-200 hover:border-indigo-300'}`}
+                  className={`py-2 rounded-md shadow-sm border transition-all flex flex-col items-center justify-center ${color === '#5c5cff' ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-neutral-200 hover:border-indigo-300'}`}
                   style={{ backgroundColor: '#5c5cff' }}
-                  title="Brand Color"
+                  title="Azul Brand Softplan"
                 >
                   <span className="text-white text-xs font-semibold drop-shadow-md">Brand</span>
                 </button>
                 <button
                   onClick={() => setColor('#ffffff')}
-                  className={`w-full py-2 rounded-md shadow-sm border transition-all flex items-center justify-center ${color === '#ffffff' ? 'ring-2 ring-neutral-400 border-neutral-400' : 'border-neutral-200 hover:border-neutral-300'}`}
+                  className={`py-2 rounded-md shadow-sm border transition-all flex flex-col items-center justify-center ${color === '#ffffff' ? 'ring-2 ring-neutral-400 border-neutral-400' : 'border-neutral-200 hover:border-neutral-300'}`}
                   style={{ backgroundColor: '#ffffff' }}
-                  title="Transparent / Clear"
+                  title="Branco Sólido"
                 >
-                  <span className="text-neutral-600 text-xs font-semibold">Clear</span>
+                  <span className="text-neutral-700 text-xs font-semibold">Branco</span>
                 </button>
                 <button
                   onClick={() => setColor('mixed')}
-                  className={`w-full py-2 rounded-md shadow-sm border transition-all flex items-center justify-center ${color === 'mixed' ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-neutral-200 hover:border-indigo-300'}`}
+                  className={`py-2 rounded-md shadow-sm border transition-all flex flex-col items-center justify-center ${color === 'mixed' ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-neutral-200 hover:border-indigo-300'}`}
                   style={{ background: 'linear-gradient(135deg, #5c5cff 50%, #ffffff 50%)' }}
-                  title="Both Mixed"
+                  title="Mesclar (Brand + Branco alternados)"
                 >
-                  <span className="text-neutral-800 text-xs font-semibold bg-white/80 px-1.5 py-0.5 rounded backdrop-blur-sm">Both</span>
+                  <span className="text-neutral-800 text-[11px] font-semibold bg-white/90 px-1 py-0.5 rounded shadow-xs">Misto</span>
                 </button>
+                <label
+                  className={`py-2 rounded-md shadow-sm border transition-all flex flex-col items-center justify-center cursor-pointer relative overflow-hidden ${color !== '#5c5cff' && color !== '#ffffff' && color !== 'mixed' ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-neutral-200 hover:border-neutral-300 bg-neutral-50'}`}
+                  style={color !== '#5c5cff' && color !== '#ffffff' && color !== 'mixed' ? { backgroundColor: color } : {}}
+                  title="Cor Personalizada"
+                >
+                  <span className={`text-[11px] font-semibold ${color !== '#5c5cff' && color !== '#ffffff' && color !== 'mixed' ? 'text-white drop-shadow-md' : 'text-neutral-600'}`}>
+                    Custom
+                  </span>
+                  <input
+                    type="color"
+                    value={color === 'mixed' ? '#5c5cff' : color}
+                    onChange={(e) => setColor(e.target.value)}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                </label>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <label className="text-sm font-medium text-neutral-700">Translucency (Glassiness)</label>
-                <span className="text-xs text-neutral-500 font-mono">{transmission.toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={transmission}
-                onChange={(e) => setTransmission(parseFloat(e.target.value))}
-                className="w-full accent-indigo-600"
-              />
-            </div>
-            
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <label className="text-sm font-medium text-neutral-700">Roughness (Frosted)</label>
-                <span className="text-xs text-neutral-500 font-mono">{roughness.toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={roughness}
-                onChange={(e) => setRoughness(parseFloat(e.target.value))}
-                className="w-full accent-indigo-600"
-              />
-            </div>
+            <p className="text-xs text-neutral-500 bg-neutral-50 p-2.5 rounded-md border border-neutral-200/80 leading-relaxed">
+              ✨ Material único unificado: <strong>acabamento esmaltado com alto brilho e reflexos de estúdio</strong>, totalmente opaco (sem transparência).
+            </p>
           </div>
 
           <div className="h-px bg-neutral-100" />
@@ -840,6 +979,7 @@ export default function App() {
       <main className="flex-1 relative cursor-grab active:cursor-grabbing">
         <Scene
           shapeType={shapeType}
+          customModel={customModel}
           layoutMode={layoutMode}
           quantity={quantity}
           thickness={thickness}
@@ -847,8 +987,6 @@ export default function App() {
           twistAngle={twistAngle}
           spacing={spacing}
           color={color}
-          transmission={transmission}
-          roughness={roughness}
           bgColor={bgColor}
           ambientIntensity={ambientIntensity}
           lightRotation={lightRotation}

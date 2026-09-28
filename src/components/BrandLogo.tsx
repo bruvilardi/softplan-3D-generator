@@ -1,27 +1,26 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { MeshTransmissionMaterial } from '@react-three/drei';
 
 interface BrandLogoProps {
   thickness: number;
   color: string;
-  transmission?: number;
   roughness?: number;
+  metalness?: number;
+  clearcoat?: number;
+  clearcoatRoughness?: number;
   bevelSize?: number;
   position?: [number, number, number];
   rotation?: [number, number, number];
   bgColor?: string;
+  transmission?: number;
 }
 
 export function BrandLogo({
   thickness,
   color,
-  transmission = 1,
-  roughness = 0.05,
   bevelSize = 0.05,
   position = [0, 0, 0],
   rotation = [0, 0, 0],
-  bgColor = '#ffffff',
 }: BrandLogoProps) {
   const geometry = useMemo(() => {
     const sShape = new THREE.Shape();
@@ -94,26 +93,15 @@ export function BrandLogo({
 
   return (
     <mesh geometry={geometry} position={position} rotation={rotation} castShadow receiveShadow>
-      <MeshTransmissionMaterial
+      <meshPhysicalMaterial
         color={color}
-        transmission={transmission}
-        transparent={true}
-        opacity={1}
-        metalness={0.05}
-        roughness={roughness}
-        ior={1.55}
-        thickness={thickness > 0 ? thickness * 1.5 : 0.5}
-        attenuationColor={color}
-        attenuationDistance={0.5}
-        clearcoat={1}
-        clearcoatRoughness={0.1}
-        envMapIntensity={2.5}
+        roughness={0.08}
+        metalness={0.02}
+        clearcoat={1.0}
+        clearcoatRoughness={0.05}
+        reflectivity={1.0}
+        envMapIntensity={2.0}
         side={THREE.DoubleSide}
-        background={new THREE.Color(bgColor)}
-        resolution={1024}
-        samples={16}
-        chromaticAberration={0.03}
-        anisotropy={0.1}
       />
     </mesh>
   );

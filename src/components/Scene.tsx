@@ -4,12 +4,15 @@ import { OrbitControls, Environment, ContactShadows, Center, DragControls } from
 import * as THREE from 'three';
 import { Softpoint } from './Softpoint';
 import { BrandLogo } from './BrandLogo';
+import { CustomModel3D } from './CustomModel3D';
+import { Custom3DModel, PRESET_MODELS } from '../types/custom3D';
 
-export type ShapeType = 'softpoint' | 'logo' | 'mixed';
+export type ShapeType = 'softpoint' | 'logo' | 'mixed' | 'custom';
 export type LayoutMode = 'linear' | 'grid' | 'radial' | 'random';
 
 interface SceneProps {
   shapeType: ShapeType;
+  customModel?: Custom3DModel | null;
   layoutMode: LayoutMode;
   quantity: number;
   thickness: number;
@@ -17,8 +20,11 @@ interface SceneProps {
   twistAngle: number;
   spacing: number;
   color: string;
-  transmission?: number;
   roughness?: number;
+  metalness?: number;
+  clearcoat?: number;
+  clearcoatRoughness?: number;
+  transmission?: number;
   bgColor: string;
   ambientIntensity: number;
   lightRotation: number;
@@ -195,6 +201,7 @@ function DraggableItemWrapper({ index, pos, basePos, onItemDrag, children }: any
 
 function InnerScene({
   shapeType,
+  customModel,
   layoutMode,
   quantity,
   thickness,
@@ -202,8 +209,10 @@ function InnerScene({
   twistAngle,
   spacing,
   color,
-  transmission,
-  roughness,
+  roughness = 0.08,
+  metalness = 0.02,
+  clearcoat = 1.0,
+  clearcoatRoughness = 0.04,
   bgColor,
   animate,
   animationSpeed = 1,
@@ -401,16 +410,24 @@ function InnerScene({
                 animationType={animationType}
                 animationScope={animationScope}
               >
-                {(shapeType === 'mixed' ? (i % 2 === 0 ? 'softpoint' : 'logo') : shapeType) === 'logo' ? (
+                {shapeType === 'custom' && customModel ? (
+                  <CustomModel3D
+                    model={customModel}
+                    color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : color}
+                    position={[0, 0, 0]}
+                    rotation={[0, 0, 0]}
+                    roughness={roughness}
+                    metalness={metalness}
+                    clearcoat={clearcoat}
+                    clearcoatRoughness={clearcoatRoughness}
+                  />
+                ) : (shapeType === 'mixed' ? (i % 2 === 0 ? 'softpoint' : 'logo') : shapeType) === 'logo' ? (
                   <BrandLogo
                     position={[0, 0, 0]}
                     rotation={[0, 0, 0]}
                     thickness={thickness || 0.5}
                     color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : color}
-                    transmission={transmission}
-                    roughness={roughness}
                     bevelSize={0.05}
-                    bgColor={bgColor}
                   />
                 ) : (
                   <Softpoint
@@ -419,10 +436,7 @@ function InnerScene({
                     thickness={thickness || 0.5}
                     radius={radius || 0.4}
                     color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : color}
-                    transmission={transmission}
-                    roughness={roughness}
                     bevelSize={0.05}
-                    bgColor={bgColor}
                   />
                 )}
               </AnimatedItem>
@@ -437,6 +451,7 @@ function InnerScene({
 
 export function Scene({
   shapeType,
+  customModel,
   layoutMode,
   quantity,
   thickness,
@@ -444,8 +459,10 @@ export function Scene({
   twistAngle,
   spacing,
   color,
-  transmission = 1,
-  roughness = 0.05,
+  roughness = 0.08,
+  metalness = 0.02,
+  clearcoat = 1.0,
+  clearcoatRoughness = 0.04,
   bgColor,
   ambientIntensity,
   lightRotation,
@@ -487,6 +504,7 @@ export function Scene({
       {/* Group of Elements */}
       <InnerScene 
         shapeType={shapeType}
+        customModel={customModel}
         layoutMode={layoutMode}
         quantity={quantity}
         thickness={thickness}
@@ -494,8 +512,10 @@ export function Scene({
         twistAngle={twistAngle}
         spacing={spacing}
         color={color}
-        transmission={transmission}
         roughness={roughness}
+        metalness={metalness}
+        clearcoat={clearcoat}
+        clearcoatRoughness={clearcoatRoughness}
         bgColor={bgColor}
         animate={animate}
         animationSpeed={animationSpeed}
