@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { Scene, ShapeType, LayoutMode } from './components/Scene';
-import { Settings2, GripHorizontal, GripVertical, Layers, Square, Type, List, LayoutGrid, Circle, Sparkles, Download, Video, Camera, Play, Pause, Loader2, RefreshCw, Upload, X } from 'lucide-react';
+import { Settings2, GripHorizontal, GripVertical, Layers, Square, Type, List, LayoutGrid, Circle, Sparkles, Download, Video, Camera, Play, Pause, Loader2, RefreshCw, Upload, X, Hand, RotateCcw, Crosshair } from 'lucide-react';
 import { Custom3DModel } from './types/custom3D';
 
 export default function App() {
@@ -48,6 +48,31 @@ export default function App() {
   const clearcoat = shininess * 0.75;
   const clearcoatRoughness = 0.06 + (1 - shininess) * 0.16;
   const exportBridgeRef = useRef<{ captureImage: (format: 'png' | 'jpeg', transparent: boolean) => string } | null>(null);
+
+  // Background Drag Mode (Pan / Posicionar na tela vs Girar 3D)
+  const [dragMode, setDragMode] = useState<'pan' | 'rotate'>('pan');
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+        setIsSpacePressed(true);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  const activeDragMode = isSpacePressed ? 'pan' : dragMode;
 
   const [itemOverrides, setItemOverrides] = useState<Record<number, { x: number, y: number, z: number, rx: number, ry: number, rz: number }>>({});
   const [selectedPiece, setSelectedPiece] = useState<number | null>(null);
@@ -843,9 +868,50 @@ export default function App() {
             <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
               <Camera className="w-4 h-4" /> Camera Setup
             </h3>
+
+            {/* Background Drag Mode */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">Arrastar o Fundo</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setDragMode('pan')}
+                  className={`flex items-center justify-center space-x-1.5 py-2 text-xs font-semibold rounded-md border transition-all ${
+                    dragMode === 'pan'
+                      ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-xs'
+                      : 'bg-white border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                  }`}
+                  title="Arrastar o fundo translada e posiciona os elementos na tela"
+                >
+                  <Hand className="w-3.5 h-3.5" />
+                  <span>Posicionar (Pan)</span>
+                </button>
+                <button
+                  onClick={() => setDragMode('rotate')}
+                  className={`flex items-center justify-center space-x-1.5 py-2 text-xs font-semibold rounded-md border transition-all ${
+                    dragMode === 'rotate'
+                      ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-xs'
+                      : 'bg-white border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                  }`}
+                  title="Arrastar o fundo gira a perspectiva 3D"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Girar 3D</span>
+                </button>
+              </div>
+            </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-neutral-700">Quick Angles</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">Quick Angles</label>
+                <button
+                  onClick={() => triggerCamera('center')}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                  title="Centralizar elemento no meio da tela"
+                >
+                  <Crosshair className="w-3 h-3" />
+                  <span>Centralizar</span>
+                </button>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 {(['front', 'top', 'side', 'isometric', 'bottom', 'back', 'close-up'] as const).map(preset => (
                   <button
@@ -1021,7 +1087,47 @@ export default function App() {
       </aside>
 
       {/* Main Canvas Area */}
-      <main className="flex-1 relative cursor-grab active:cursor-grabbing">
+      <main className="flex-1 relative cursor-grab active:cursor-grabbing select-none">
+        {/* Floating Canvas Quick Controls */}
+        <div className="absolute top-5 left-1/2 -translate-x-1/2 z-20 flex items-center bg-white/90 backdrop-blur-md px-2 py-1.5 rounded-xl shadow-lg border border-neutral-200/90 space-x-1">
+          <button
+            onClick={() => setDragMode('pan')}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeDragMode === 'pan'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+            }`}
+            title="Clique e arraste no fundo para mover e posicionar os elementos na tela"
+          >
+            <Hand className="w-3.5 h-3.5" />
+            <span>Mover Tela (Pan)</span>
+          </button>
+
+          <button
+            onClick={() => setDragMode('rotate')}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeDragMode === 'rotate'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+            }`}
+            title="Clique e arraste no fundo para girar a perspectiva 3D"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Girar 3D</span>
+          </button>
+
+          <div className="w-px h-4 bg-neutral-200 mx-1" />
+
+          <button
+            onClick={() => triggerCamera('center')}
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-medium text-neutral-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+            title="Centralizar elemento no meio da tela"
+          >
+            <Crosshair className="w-3.5 h-3.5" />
+            <span>Centralizar</span>
+          </button>
+        </div>
+
         <Scene
           shapeType={shapeType}
           customModel={customModel}
@@ -1038,6 +1144,7 @@ export default function App() {
           clearcoatRoughness={clearcoatRoughness}
           exportBridgeRef={exportBridgeRef}
           isRecording={recordingMode !== 'none'}
+          dragMode={activeDragMode}
           bgColor={bgColor}
           ambientIntensity={ambientIntensity}
           lightRotation={lightRotation}
@@ -1061,12 +1168,17 @@ export default function App() {
         />
         
         {/* Helper overlay */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium flex items-center space-x-2">
-          <span>Click & Drag a piece to move it</span>
-          <span className="opacity-50">•</span>
-          <span>Drag background to rotate</span>
-          <span className="opacity-50">•</span>
-          <span>Scroll to zoom</span>
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none bg-neutral-900/80 backdrop-blur-md text-white px-4 py-2 rounded-full text-xs font-medium flex items-center space-x-3 shadow-lg">
+          <span className="flex items-center gap-1.5">
+            {activeDragMode === 'pan' ? <Hand className="w-3.5 h-3.5 text-indigo-400" /> : <RotateCcw className="w-3.5 h-3.5 text-indigo-400" />}
+            {activeDragMode === 'pan' ? 'Arraste o fundo para posicionar' : 'Arraste o fundo para girar'}
+          </span>
+          <span className="opacity-40">•</span>
+          <span>Arraste peças individuais</span>
+          <span className="opacity-40">•</span>
+          <span>Scroll para zoom</span>
+          <span className="opacity-40">•</span>
+          <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-mono">Espaço = Mover</span>
         </div>
       </main>
     </div>

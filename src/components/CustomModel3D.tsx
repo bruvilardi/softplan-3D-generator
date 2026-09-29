@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBox } from '@react-three/drei';
 import { Custom3DModel, Model3DPart, ExtrudePart } from '../types/custom3D';
 
@@ -76,16 +75,17 @@ function ExtrudePartMesh({ part, mat }: { part: ExtrudePart; mat: MaterialParams
       shape.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
     }
 
-    let geo: THREE.BufferGeometry = new THREE.ExtrudeGeometry(shape, {
+    const geo = new THREE.ExtrudeGeometry(shape, {
       depth: part.depth ?? 0.3,
       bevelEnabled: part.bevelEnabled ?? true,
-      bevelSize: part.bevelSize ?? 0.05,
-      bevelThickness: part.bevelThickness ?? 0.05,
-      bevelSegments: 16,
-      curveSegments: 32,
+      bevelSize: part.bevelSize ?? 0.04,
+      bevelThickness: part.bevelThickness ?? 0.04,
+      bevelSegments: 12,
+      curveSegments: 64,
+      steps: 1,
     });
     geo.center();
-    geo = BufferGeometryUtils.toCreasedNormals(geo, (35 * Math.PI) / 180);
+    geo.computeVertexNormals();
     return geo;
   }, [part]);
 
@@ -106,7 +106,7 @@ function ExtrudePartMesh({ part, mat }: { part: ExtrudePart; mat: MaterialParams
         clearcoatRoughness={mat.clearcoatRoughness}
         reflectivity={mat.reflectivity}
         envMapIntensity={mat.envMapIntensity}
-        side={THREE.DoubleSide}
+        side={THREE.FrontSide}
       />
     </mesh>
   );

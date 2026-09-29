@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 interface SoftpointProps {
   thickness: number;
@@ -55,18 +54,20 @@ export function Softpoint({
     // Back to Top-Right
     shape.lineTo(size / 2, size / 2);
 
-    let geo: THREE.BufferGeometry = new THREE.ExtrudeGeometry(shape, {
+    const safeBevel = Math.min(bevelSize, 0.06);
+
+    const geo = new THREE.ExtrudeGeometry(shape, {
       depth: thickness,
       bevelEnabled: true,
-      bevelThickness: bevelSize,
-      bevelSize: bevelSize,
-      bevelSegments: 16,
-      curveSegments: 96,
+      bevelThickness: safeBevel,
+      bevelSize: safeBevel,
+      bevelSegments: 12,
+      curveSegments: 128, // Ultra-dense curve segments for silky corners
+      steps: 1,
     });
     geo.center();
-    // Use toCreasedNormals with 35 degrees threshold to keep front/back faces perfectly flat
-    // and rounded corners smooth without specular crease line artifacts
-    geo = BufferGeometryUtils.toCreasedNormals(geo, (35 * Math.PI) / 180);
+    // Continuous smooth vertex normals along curves (no jagged rippling/denteado)
+    geo.computeVertexNormals();
     return geo;
   }, [thickness, radius, bevelSize]);
 
@@ -80,7 +81,7 @@ export function Softpoint({
         clearcoatRoughness={clearcoatRoughness}
         reflectivity={reflectivity}
         envMapIntensity={envMapIntensity}
-        side={THREE.DoubleSide}
+        side={THREE.FrontSide}
       />
     </mesh>
   );

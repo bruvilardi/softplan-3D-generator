@@ -48,6 +48,7 @@ interface SceneProps {
   alignmentAxis?: 'x' | 'y' | 'z';
   exportBridgeRef?: React.MutableRefObject<any>;
   isRecording?: boolean;
+  dragMode?: 'pan' | 'rotate';
 }
 
 function SceneExportBridge({ bridgeRef }: { bridgeRef?: React.MutableRefObject<any> }) {
@@ -103,6 +104,12 @@ function CameraController({ fov, trigger }: { fov: number, trigger?: { id: numbe
     if (!trigger || !controls) return;
     
     const p = trigger.preset;
+    if (p === 'center' || p === 'reset') {
+      (controls as any).target.set(0, 0, 0);
+      (controls as any).update();
+      return;
+    }
+
     const targetPos = new THREE.Vector3();
     
     if (p === 'isometric') {
@@ -534,6 +541,7 @@ export function Scene({
   alignmentAxis = 'x',
   exportBridgeRef,
   isRecording = false,
+  dragMode = 'pan',
 }: SceneProps) {
   return (
     <Canvas
@@ -607,7 +615,26 @@ export function Scene({
         />
       )}
 
-      <OrbitControls makeDefault minDistance={1} maxDistance={40} autoRotate={autoRotate} autoRotateSpeed={autoRotateSpeed} />
+      <OrbitControls
+        makeDefault
+        minDistance={1}
+        maxDistance={40}
+        autoRotate={autoRotate}
+        autoRotateSpeed={autoRotateSpeed}
+        enablePan={true}
+        screenSpacePanning={true}
+        enableDamping={true}
+        dampingFactor={0.08}
+        mouseButtons={{
+          LEFT: dragMode === 'pan' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: dragMode === 'pan' ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN,
+        }}
+        touches={{
+          ONE: dragMode === 'pan' ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE,
+          TWO: THREE.TOUCH.DOLLY_PAN,
+        }}
+      />
     </Canvas>
   );
 }

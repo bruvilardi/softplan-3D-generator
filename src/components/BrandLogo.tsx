@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 interface BrandLogoProps {
   thickness: number;
@@ -83,21 +82,23 @@ export function BrandLogo({
 
     // Scale to fit nicely in the scene (max dimension around 2-3 units)
     const scale = 0.35;
+    // Keep bevel well-proportioned to prevent self-intersection on tight inner curves
+    const safeBevel = Math.min(bevelSize / scale, 0.08);
 
-    let geo: THREE.BufferGeometry = new THREE.ExtrudeGeometry([sShape, dotShape], {
+    const geo = new THREE.ExtrudeGeometry([sShape, dotShape], {
       depth: thickness / scale, // Adjust depth so final thickness matches exact prop value
       bevelEnabled: true,
-      bevelThickness: bevelSize / scale,
-      bevelSize: bevelSize / scale,
-      bevelSegments: 16,
-      curveSegments: 96,
-      steps: 2,
+      bevelThickness: safeBevel,
+      bevelSize: safeBevel,
+      bevelSegments: 12,
+      curveSegments: 128, // Ultra-high curve resolution for smooth rounding
+      steps: 1,
     });
     
     geo.scale(scale, scale, scale);
     geo.center();
-    // Keep flat faces crisp and corner curves smooth without specular crease line artifacts
-    geo = BufferGeometryUtils.toCreasedNormals(geo, (35 * Math.PI) / 180);
+    // Continuous smooth vertex normals along curves (no jagged rippling/denteado)
+    geo.computeVertexNormals();
     return geo;
   }, [thickness, bevelSize]);
 
@@ -111,7 +112,7 @@ export function BrandLogo({
         clearcoatRoughness={clearcoatRoughness}
         reflectivity={reflectivity}
         envMapIntensity={envMapIntensity}
-        side={THREE.DoubleSide}
+        side={THREE.FrontSide}
       />
     </mesh>
   );
