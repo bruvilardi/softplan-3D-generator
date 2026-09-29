@@ -43,6 +43,11 @@ export default function App() {
   const [cameraTrigger, setCameraTrigger] = useState<{ id: number, preset: string } | undefined>(undefined);
   const [transparentBg, setTransparentBg] = useState(false);
   const [recordingMode, setRecordingMode] = useState<'none' | 'solid' | 'transparent'>('none');
+  const [shininess, setShininess] = useState(0.45); // Softer shine default (diminuído conforme pedido)
+  const roughness = 0.14 + (1 - shininess) * 0.28;
+  const clearcoat = shininess * 0.75;
+  const clearcoatRoughness = 0.06 + (1 - shininess) * 0.16;
+  const exportBridgeRef = useRef<{ captureImage: (format: 'png' | 'jpeg', transparent: boolean) => string } | null>(null);
 
   const [itemOverrides, setItemOverrides] = useState<Record<number, { x: number, y: number, z: number, rx: number, ry: number, rz: number }>>({});
   const [selectedPiece, setSelectedPiece] = useState<number | null>(null);
@@ -156,11 +161,25 @@ export default function App() {
   const chunksRef = useRef<BlobPart[]>([]);
 
   const exportImage = (format: 'png' | 'jpeg', transparent: boolean) => {
+    try {
+      if (exportBridgeRef.current?.captureImage) {
+        // High-fidelity super-sampled anti-aliased render (zero serrilhado)
+        const dataUrl = exportBridgeRef.current.captureImage(format, transparent);
+        const link = document.createElement('a');
+        link.download = `softpoint-render-${Date.now()}.${format}`;
+        link.href = dataUrl;
+        link.click();
+        return;
+      }
+    } catch (err) {
+      console.warn('Super-sample capture fallback', err);
+    }
+
     if (transparent) {
       setTransparentBg(true);
     }
     
-    // Give it a frame to render without background
+    // Fallback if bridge is not ready
     setTimeout(() => {
       const canvas = document.querySelector('canvas');
       if (canvas) {
@@ -185,8 +204,10 @@ export default function App() {
       if (transparent) {
         setTransparentBg(true);
       }
+      setRecordingMode(transparent ? 'transparent' : 'solid');
+      setAnimate(true); // Force animation on while recording
       
-      // Give React a tick to hide the background before capturing
+      // Give React a tick to boost DPR to 2.5x and update state before capturing stream
       setTimeout(() => {
         const canvas = document.querySelector('canvas');
         if (!canvas) return;
@@ -208,10 +229,10 @@ export default function App() {
           }
         }
         
-        // Use high bitrate for quality (25 Mbps)
+        // 40 Mbps ultra-high bitrate to prevent any compression macroblocking / edge artifacts
         mediaRecorderRef.current = new MediaRecorder(stream, { 
           mimeType,
-          videoBitsPerSecond: 25000000 
+          videoBitsPerSecond: 40000000 
         });
         chunksRef.current = [];
         
@@ -235,9 +256,7 @@ export default function App() {
         };
         
         mediaRecorderRef.current.start();
-        setRecordingMode(transparent ? 'transparent' : 'solid');
-        setAnimate(true); // Force animation on while recording
-      }, 100);
+      }, 150);
     }
   };
 
@@ -354,7 +373,7 @@ export default function App() {
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider">Material & Cor</h3>
               <span className="text-[10px] uppercase font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
-                Brilhoso Sólido
+                {shininess <= 0.35 ? 'Acetinado' : shininess <= 0.6 ? 'Brilho Suave' : 'Alto Brilho'} ({Math.round(shininess * 100)}%)
               </span>
             </div>
 
@@ -404,8 +423,34 @@ export default function App() {
               </div>
             </div>
 
+            {/* Shininess / Gloss Slider */}
+            <div className="space-y-2 pt-1">
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">
+                  Intensidade do Brilho (Gloss)
+                </label>
+                <span className="text-xs text-neutral-500 font-mono">
+                  {Math.round(shininess * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="0.9"
+                step="0.05"
+                value={shininess}
+                onChange={(e) => setShininess(parseFloat(e.target.value))}
+                className="w-full accent-indigo-600"
+              />
+              <div className="flex justify-between text-[10px] text-neutral-400">
+                <span>Acetinado</span>
+                <span className="text-indigo-600 font-medium">Suave (Padrão)</span>
+                <span>Espelhado</span>
+              </div>
+            </div>
+
             <p className="text-xs text-neutral-500 bg-neutral-50 p-2.5 rounded-md border border-neutral-200/80 leading-relaxed">
-              ✨ Material único unificado: <strong>acabamento esmaltado com alto brilho e reflexos de estúdio</strong>, totalmente opaco (sem transparência).
+              ✨ Material refinado: acabamento esmaltado com <strong>brilho suave e reflexos equilibrados de estúdio</strong>, sem reflexos estourados ou ofuscantes.
             </p>
           </div>
 
@@ -987,6 +1032,12 @@ export default function App() {
           twistAngle={twistAngle}
           spacing={spacing}
           color={color}
+          roughness={roughness}
+          metalness={0.02}
+          clearcoat={clearcoat}
+          clearcoatRoughness={clearcoatRoughness}
+          exportBridgeRef={exportBridgeRef}
+          isRecording={recordingMode !== 'none'}
           bgColor={bgColor}
           ambientIntensity={ambientIntensity}
           lightRotation={lightRotation}

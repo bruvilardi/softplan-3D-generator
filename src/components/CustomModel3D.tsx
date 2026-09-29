@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBox } from '@react-three/drei';
 import { Custom3DModel, Model3DPart, ExtrudePart } from '../types/custom3D';
 
@@ -13,9 +14,21 @@ interface CustomModel3DProps {
   metalness?: number;
   clearcoat?: number;
   clearcoatRoughness?: number;
+  reflectivity?: number;
+  envMapIntensity?: number;
 }
 
-function ExtrudePartMesh({ part, color }: { part: ExtrudePart; color: string }) {
+interface MaterialParams {
+  color: string;
+  roughness: number;
+  metalness: number;
+  clearcoat: number;
+  clearcoatRoughness: number;
+  reflectivity: number;
+  envMapIntensity: number;
+}
+
+function ExtrudePartMesh({ part, mat }: { part: ExtrudePart; mat: MaterialParams }) {
   const geometry = useMemo(() => {
     const shape = new THREE.Shape();
     if (part.shape && part.shape.length > 0) {
@@ -63,7 +76,7 @@ function ExtrudePartMesh({ part, color }: { part: ExtrudePart; color: string }) 
       shape.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
     }
 
-    const geo = new THREE.ExtrudeGeometry(shape, {
+    let geo: THREE.BufferGeometry = new THREE.ExtrudeGeometry(shape, {
       depth: part.depth ?? 0.3,
       bevelEnabled: part.bevelEnabled ?? true,
       bevelSize: part.bevelSize ?? 0.05,
@@ -72,7 +85,7 @@ function ExtrudePartMesh({ part, color }: { part: ExtrudePart; color: string }) 
       curveSegments: 32,
     });
     geo.center();
-    geo.computeVertexNormals();
+    geo = BufferGeometryUtils.toCreasedNormals(geo, (35 * Math.PI) / 180);
     return geo;
   }, [part]);
 
@@ -86,40 +99,40 @@ function ExtrudePartMesh({ part, color }: { part: ExtrudePart; color: string }) 
       receiveShadow
     >
       <meshPhysicalMaterial
-        color={color}
-        roughness={0.08}
-        metalness={0.02}
-        clearcoat={1.0}
-        clearcoatRoughness={0.05}
-        reflectivity={1.0}
-        envMapIntensity={2.0}
+        color={mat.color}
+        roughness={mat.roughness}
+        metalness={mat.metalness}
+        clearcoat={mat.clearcoat}
+        clearcoatRoughness={mat.clearcoatRoughness}
+        reflectivity={mat.reflectivity}
+        envMapIntensity={mat.envMapIntensity}
         side={THREE.DoubleSide}
       />
     </mesh>
   );
 }
 
-function RenderSinglePart({ part, color }: { part: Model3DPart; color: string }) {
+function RenderSinglePart({ part, mat }: { part: Model3DPart; mat: MaterialParams }) {
   const pos = part.position || [0, 0, 0];
   const rot = part.rotation || [0, 0, 0];
   const scl = part.scale || [1, 1, 1];
 
   const material = (
     <meshPhysicalMaterial
-      color={color}
-      roughness={0.08}
-      metalness={0.02}
-      clearcoat={1.0}
-      clearcoatRoughness={0.05}
-      reflectivity={1.0}
-      envMapIntensity={2.0}
+      color={mat.color}
+      roughness={mat.roughness}
+      metalness={mat.metalness}
+      clearcoat={mat.clearcoat}
+      clearcoatRoughness={mat.clearcoatRoughness}
+      reflectivity={mat.reflectivity}
+      envMapIntensity={mat.envMapIntensity}
       side={THREE.DoubleSide}
     />
   );
 
   switch (part.type) {
     case 'extrude':
-      return <ExtrudePartMesh part={part} color={color} />;
+      return <ExtrudePartMesh part={part} mat={mat} />;
 
     case 'sphere':
       return (
@@ -215,14 +228,26 @@ export function CustomModel3D({
   position = [0, 0, 0],
   rotation = [0, 0, 0],
   scale = 1,
-  roughness = 0.1,
-  metalness = 0.05,
-  clearcoat = 1.0,
-  clearcoatRoughness = 0.05,
+  roughness = 0.22,
+  metalness = 0.02,
+  clearcoat = 0.45,
+  clearcoatRoughness = 0.12,
+  reflectivity = 0.65,
+  envMapIntensity = 1.1,
 }: CustomModel3DProps) {
   const scaleArray: [number, number, number] = Array.isArray(scale)
     ? scale
     : [scale, scale, scale];
+
+  const mat: MaterialParams = useMemo(() => ({
+    color: color === 'mixed' ? '#5c5cff' : color,
+    roughness,
+    metalness,
+    clearcoat,
+    clearcoatRoughness,
+    reflectivity,
+    envMapIntensity,
+  }), [color, roughness, metalness, clearcoat, clearcoatRoughness, reflectivity, envMapIntensity]);
 
   // Handle imported 3D CAD/GLTF/OBJ objects and procedural sculptures
   const clonedScene = useMemo(() => {
@@ -233,19 +258,19 @@ export function CustomModel3D({
         child.castShadow = true;
         child.receiveShadow = true;
         child.material = new THREE.MeshPhysicalMaterial({
-          color: color === 'mixed' ? '#5c5cff' : color,
-          roughness,
-          metalness,
-          clearcoat,
-          clearcoatRoughness,
-          reflectivity: 1.0,
-          envMapIntensity: 2.5,
+          color: mat.color,
+          roughness: mat.roughness,
+          metalness: mat.metalness,
+          clearcoat: mat.clearcoat,
+          clearcoatRoughness: mat.clearcoatRoughness,
+          reflectivity: mat.reflectivity,
+          envMapIntensity: mat.envMapIntensity,
           side: THREE.DoubleSide,
         });
       }
     });
     return clone;
-  }, [model.importedScene, color, roughness, metalness, clearcoat, clearcoatRoughness]);
+  }, [model.importedScene, mat]);
 
   if (clonedScene) {
     return (
@@ -258,7 +283,7 @@ export function CustomModel3D({
   return (
     <group position={position} rotation={rotation} scale={scaleArray}>
       {model.parts.map((part, index) => (
-        <RenderSinglePart key={index} part={part} color={color} />
+        <RenderSinglePart key={index} part={part} mat={mat} />
       ))}
     </group>
   );

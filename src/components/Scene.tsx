@@ -46,6 +46,47 @@ interface SceneProps {
   waveAmplitude?: number;
   waveFrequency?: number;
   alignmentAxis?: 'x' | 'y' | 'z';
+  exportBridgeRef?: React.MutableRefObject<any>;
+  isRecording?: boolean;
+}
+
+function SceneExportBridge({ bridgeRef }: { bridgeRef?: React.MutableRefObject<any> }) {
+  const { gl, scene, camera } = useThree();
+
+  useEffect(() => {
+    if (!bridgeRef) return;
+    bridgeRef.current = {
+      captureImage: (format: 'png' | 'jpeg', transparent: boolean): string => {
+        const originalDpr = gl.getPixelRatio();
+        const originalBg = scene.background;
+
+        // Super-sample at 3x or 4x device pixel ratio for smooth anti-aliased output without jagged edges
+        const targetDpr = Math.min(Math.max(window.devicePixelRatio || 2, 2) * 2, 4);
+        gl.setPixelRatio(targetDpr);
+
+        if (transparent) {
+          scene.background = null;
+          gl.setClearColor(0x000000, 0);
+        }
+
+        gl.render(scene, camera);
+
+        const mime = format === 'png' ? 'image/png' : 'image/jpeg';
+        const dataUrl = gl.domElement.toDataURL(mime, format === 'jpeg' ? 0.98 : undefined);
+
+        // Restore original state
+        if (transparent) {
+          scene.background = originalBg;
+        }
+        gl.setPixelRatio(originalDpr);
+        gl.render(scene, camera);
+
+        return dataUrl;
+      }
+    };
+  }, [bridgeRef, gl, scene, camera]);
+
+  return null;
 }
 
 function CameraController({ fov, trigger }: { fov: number, trigger?: { id: number, preset: string } }) {
@@ -209,10 +250,10 @@ function InnerScene({
   twistAngle,
   spacing,
   color,
-  roughness = 0.08,
+  roughness = 0.22,
   metalness = 0.02,
-  clearcoat = 1.0,
-  clearcoatRoughness = 0.04,
+  clearcoat = 0.45,
+  clearcoatRoughness = 0.12,
   bgColor,
   animate,
   animationSpeed = 1,
@@ -428,6 +469,10 @@ function InnerScene({
                     thickness={thickness || 0.5}
                     color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : color}
                     bevelSize={0.05}
+                    roughness={roughness}
+                    metalness={metalness}
+                    clearcoat={clearcoat}
+                    clearcoatRoughness={clearcoatRoughness}
                   />
                 ) : (
                   <Softpoint
@@ -437,6 +482,10 @@ function InnerScene({
                     radius={radius || 0.4}
                     color={color === 'mixed' ? (i % 2 === 0 ? '#5c5cff' : '#ffffff') : color}
                     bevelSize={0.05}
+                    roughness={roughness}
+                    metalness={metalness}
+                    clearcoat={clearcoat}
+                    clearcoatRoughness={clearcoatRoughness}
                   />
                 )}
               </AnimatedItem>
@@ -459,10 +508,10 @@ export function Scene({
   twistAngle,
   spacing,
   color,
-  roughness = 0.08,
+  roughness = 0.22,
   metalness = 0.02,
-  clearcoat = 1.0,
-  clearcoatRoughness = 0.04,
+  clearcoat = 0.45,
+  clearcoatRoughness = 0.12,
   bgColor,
   ambientIntensity,
   lightRotation,
@@ -483,23 +532,39 @@ export function Scene({
   waveAmplitude = 0,
   waveFrequency = 1,
   alignmentAxis = 'x',
+  exportBridgeRef,
+  isRecording = false,
 }: SceneProps) {
   return (
-    <Canvas gl={{ preserveDrawingBuffer: true, alpha: true, antialias: true, powerPreference: "high-performance" }} dpr={[1.5, 2]} camera={{ position: [0, 0, 8], fov: cameraFov }} shadows>
+    <Canvas
+      gl={{
+        preserveDrawingBuffer: true,
+        alpha: true,
+        antialias: true,
+        powerPreference: "high-performance",
+      }}
+      dpr={isRecording ? 2.5 : [1.75, 2.5]}
+      camera={{ position: [0, 0, 8], fov: cameraFov }}
+      shadows
+    >
+      <SceneExportBridge bridgeRef={exportBridgeRef} />
       <CameraController fov={cameraFov} trigger={cameraTrigger} />
       {!transparentBg && <color attach="background" args={[bgColor]} />}
       
-      {/* Lighting to make the glass look good */}
-      <ambientLight intensity={ambientIntensity * 1.5} />
+      {/* Lighting to make the shapes look soft and balanced without excessive specular glare */}
+      <ambientLight intensity={ambientIntensity * 1.3} />
       
       <group rotation={[0, (lightRotation * Math.PI) / 180, 0]}>
-        <directionalLight position={[10, 10, 10]} intensity={1.5 + ambientIntensity} castShadow />
-        <directionalLight position={[-10, -10, -10]} intensity={0.5 + ambientIntensity * 0.5} />
-        <pointLight position={[0, 5, 5]} intensity={0.8 + ambientIntensity} />
+        {/* Main studio key light */}
+        <directionalLight position={[10, 10, 10]} intensity={1.1 + ambientIntensity * 0.5} castShadow />
+        {/* Broad soft fill light (eliminates harsh point specular lines on curved bevels) */}
+        <directionalLight position={[-8, 6, 8]} intensity={0.5 + ambientIntensity * 0.3} />
+        {/* Subtle rim / back light for dimensional separation */}
+        <directionalLight position={[0, -6, -10]} intensity={0.3 + ambientIntensity * 0.2} />
       </group>
 
-      {/* Environment for reflections */}
-      <Environment preset={environmentPreset as any} environmentRotation={[0, (lightRotation * Math.PI) / 180, 0]} environmentIntensity={0.5 + ambientIntensity} />
+      {/* Environment for balanced studio reflections */}
+      <Environment preset={environmentPreset as any} environmentRotation={[0, (lightRotation * Math.PI) / 180, 0]} environmentIntensity={0.45 + ambientIntensity * 0.6} />
 
       {/* Group of Elements */}
       <InnerScene 

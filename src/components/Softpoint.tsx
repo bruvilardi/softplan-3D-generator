@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 interface SoftpointProps {
   thickness: number;
@@ -9,6 +10,8 @@ interface SoftpointProps {
   metalness?: number;
   clearcoat?: number;
   clearcoatRoughness?: number;
+  reflectivity?: number;
+  envMapIntensity?: number;
   bevelSize?: number;
   position?: [number, number, number];
   rotation?: [number, number, number];
@@ -20,6 +23,12 @@ export function Softpoint({
   thickness,
   radius,
   color,
+  roughness = 0.22,
+  metalness = 0.02,
+  clearcoat = 0.45,
+  clearcoatRoughness = 0.12,
+  reflectivity = 0.65,
+  envMapIntensity = 1.1,
   bevelSize = 0.05,
   position = [0, 0, 0],
   rotation = [0, 0, 0],
@@ -46,16 +55,18 @@ export function Softpoint({
     // Back to Top-Right
     shape.lineTo(size / 2, size / 2);
 
-    const geo = new THREE.ExtrudeGeometry(shape, {
+    let geo: THREE.BufferGeometry = new THREE.ExtrudeGeometry(shape, {
       depth: thickness,
       bevelEnabled: true,
       bevelThickness: bevelSize,
       bevelSize: bevelSize,
-      bevelSegments: 32, // High segments for smooth glass look
-      curveSegments: 128, // High segments for smooth corners
+      bevelSegments: 16,
+      curveSegments: 96,
     });
     geo.center();
-    geo.computeVertexNormals(); // Ensure smooth shading
+    // Use toCreasedNormals with 35 degrees threshold to keep front/back faces perfectly flat
+    // and rounded corners smooth without specular crease line artifacts
+    geo = BufferGeometryUtils.toCreasedNormals(geo, (35 * Math.PI) / 180);
     return geo;
   }, [thickness, radius, bevelSize]);
 
@@ -63,12 +74,12 @@ export function Softpoint({
     <mesh geometry={geometry} position={position} rotation={rotation} castShadow receiveShadow>
       <meshPhysicalMaterial
         color={color}
-        roughness={0.08}
-        metalness={0.02}
-        clearcoat={1.0}
-        clearcoatRoughness={0.05}
-        reflectivity={1.0}
-        envMapIntensity={2.0}
+        roughness={roughness}
+        metalness={metalness}
+        clearcoat={clearcoat}
+        clearcoatRoughness={clearcoatRoughness}
+        reflectivity={reflectivity}
+        envMapIntensity={envMapIntensity}
         side={THREE.DoubleSide}
       />
     </mesh>
