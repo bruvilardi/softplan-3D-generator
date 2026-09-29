@@ -666,7 +666,7 @@ export function Scene({
       }}
       dpr={[1.75, 2.5]}
       camera={{ position: [0, 0, 8], fov: cameraFov }}
-      shadows
+      shadows={{ enabled: true, type: THREE.PCFSoftShadowMap }}
     >
       <SceneExportBridge bridgeRef={exportBridgeRef} />
       <CameraController fov={cameraFov} trigger={cameraTrigger} />
@@ -677,8 +677,23 @@ export function Scene({
       <ambientLight intensity={ambientIntensity * 1.3} />
       
       <group rotation={[0, (lightRotation * Math.PI) / 180, 0]}>
-        {/* Main studio key light */}
-        <directionalLight position={[10, 10, 10]} intensity={1.1 + ambientIntensity * 0.5} castShadow />
+        {/* Main studio key light with ultra-high fidelity shadow rendering (no jagged/wavy edges) */}
+        <directionalLight
+          position={[10, 10, 10]}
+          intensity={1.1 + ambientIntensity * 0.5}
+          castShadow
+          shadow-mapSize-width={4096}
+          shadow-mapSize-height={4096}
+          shadow-camera-near={0.5}
+          shadow-camera-far={32}
+          shadow-camera-left={-8}
+          shadow-camera-right={8}
+          shadow-camera-top={8}
+          shadow-camera-bottom={-8}
+          shadow-bias={-0.0001}
+          shadow-normalBias={0.04}
+          shadow-radius={2.5}
+        />
         {/* Broad soft fill light (eliminates harsh point specular lines on curved bevels) */}
         <directionalLight position={[-8, 6, 8]} intensity={0.5 + ambientIntensity * 0.3} />
         {/* Subtle rim / back light for dimensional separation */}
