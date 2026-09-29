@@ -192,7 +192,8 @@ export default function App() {
   };
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<BlobPart[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   const exportImage = (format: 'png' | 'jpeg', transparent: boolean) => {
     try {
@@ -230,68 +231,127 @@ export default function App() {
   };
 
   const toggleRecording = (transparent: boolean) => {
+    // If currently recording, stop cleanly
     if (recordingMode !== 'none') {
-      mediaRecorderRef.current?.stop();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {
+          console.warn('Error stopping MediaRecorder:', e);
+        }
+      }
       setRecordingMode('none');
       if (transparentBg) setTransparentBg(false);
-    } else {
-      if (transparent) {
-        setTransparentBg(true);
+      return;
+    }
+
+    // Start recording
+    if (transparent) {
+      setTransparentBg(true);
+    }
+    setRecordingMode(transparent ? 'transparent' : 'solid');
+    setAnimate(true); // Force animation on while recording
+
+    // Clean up any previously opened tracks
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+
+    setTimeout(() => {
+      const canvas = document.querySelector('canvas');
+      if (!canvas) {
+        setRecordingMode('none');
+        if (transparent) setTransparentBg(false);
+        return;
       }
-      setRecordingMode(transparent ? 'transparent' : 'solid');
-      setAnimate(true); // Force animation on while recording
-      
-      // Give React a tick to boost DPR to 2.5x and update state before capturing stream
-      setTimeout(() => {
-        const canvas = document.querySelector('canvas');
-        if (!canvas) return;
-        
+
+      try {
         const stream = canvas.captureStream(60);
-        let mimeType = 'video/webm;codecs=vp9';
-        
-        if (transparent) {
-          // Force webm for transparency support
-          if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = 'video/webm'; 
-          }
-        } else {
-          // Try to use MP4 if supported, fallback to webm
-          if (MediaRecorder.isTypeSupported('video/mp4')) {
-            mimeType = 'video/mp4';
-          } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
-            mimeType = 'video/webm;codecs=h264';
+        streamRef.current = stream;
+
+        // Choose best supported MIME type
+        const candidates = transparent
+          ? [
+              'video/webm;codecs=vp9',
+              'video/webm;codecs=vp8',
+              'video/webm',
+            ]
+          : [
+              'video/webm;codecs=vp9',
+              'video/webm;codecs=vp8',
+              'video/mp4',
+              'video/webm',
+            ];
+
+        let selectedMime = 'video/webm';
+        for (const candidate of candidates) {
+          if (MediaRecorder.isTypeSupported(candidate)) {
+            selectedMime = candidate;
+            break;
           }
         }
-        
-        // 40 Mbps ultra-high bitrate to prevent any compression macroblocking / edge artifacts
-        mediaRecorderRef.current = new MediaRecorder(stream, { 
-          mimeType,
-          videoBitsPerSecond: 40000000 
+
+        const recorder = new MediaRecorder(stream, {
+          mimeType: selectedMime,
+          videoBitsPerSecond: 16000000, // 16 Mbps: super crisp and stable across repeated exports
         });
+
         chunksRef.current = [];
-        
-        mediaRecorderRef.current.ondataavailable = (e) => {
-          if (e.data.size > 0) chunksRef.current.push(e.data);
+
+        recorder.ondataavailable = (e: BlobEvent) => {
+          if (e.data && e.data.size > 0) {
+            chunksRef.current.push(e.data);
+          }
         };
-        
-        mediaRecorderRef.current.onstop = () => {
-          const blob = new Blob(chunksRef.current, { type: mimeType });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-          link.href = url;
-          link.download = `softpoint-animation${transparent ? '-transparent' : ''}.${ext}`;
-          link.click();
-          URL.revokeObjectURL(url);
-          
+
+        recorder.onerror = (e) => {
+          console.error('MediaRecorder error event:', e);
+          setRecordingMode('none');
+          if (transparent) setTransparentBg(false);
+        };
+
+        recorder.onstop = () => {
+          // Stop media stream tracks cleanly
+          stream.getTracks().forEach((track) => track.stop());
+          if (streamRef.current === stream) {
+            streamRef.current = null;
+          }
+
+          if (chunksRef.current.length > 0) {
+            const blob = new Blob(chunksRef.current, { type: selectedMime });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const ext = selectedMime.includes('mp4') ? 'mp4' : 'webm';
+            link.href = url;
+            link.download = `softpoint-animation${transparent ? '-transparent' : ''}-${Date.now()}.${ext}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Keep the Blob URL alive so the browser can finish downloading cleanly
+            setTimeout(() => {
+              URL.revokeObjectURL(url);
+            }, 20000);
+          } else {
+            console.warn('MediaRecorder produced 0 chunks.');
+          }
+
           if (transparent) {
             setTransparentBg(false);
           }
+          setRecordingMode('none');
         };
-        
-        mediaRecorderRef.current.start();
-      }, 150);
-    }
+
+        mediaRecorderRef.current = recorder;
+        // Request chunking every 250ms so all frames are captured reliably
+        recorder.start(250);
+      } catch (err) {
+        console.error('Failed to start MediaRecorder:', err);
+        setRecordingMode('none');
+        if (transparent) setTransparentBg(false);
+      }
+    }, 150);
   };
 
   return (

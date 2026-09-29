@@ -1,6 +1,6 @@
 import { useMemo, useRef, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Environment, ContactShadows, Center, DragControls } from '@react-three/drei';
+import { OrbitControls, Environment, ContactShadows, Center } from '@react-three/drei';
 import * as THREE from 'three';
 import { Softpoint } from './Softpoint';
 import { BrandLogo } from './BrandLogo';
@@ -286,36 +286,66 @@ function AnimatedItem({
 }
 
 function DraggableItemWrapper({ index, pos, basePos, onItemDrag, children, isSpacePressed }: any) {
-  const groupRef = useRef<THREE.Group>(null);
-  
-  if (isSpacePressed) {
-    return (
-      <group ref={groupRef} position={pos}>
-        {children}
-      </group>
-    );
-  }
+  const { camera } = useThree();
+  const draggingRef = useRef(false);
+  const dragPlaneRef = useRef(new THREE.Plane());
+  const planeIntersectRef = useRef(new THREE.Vector3());
+  const offsetRef = useRef(new THREE.Vector3());
+
+  const handlePointerDown = (e: any) => {
+    if (isSpacePressed) return;
+    // Only drag with left mouse button
+    if (e.button !== undefined && e.button !== 0) return;
+    e.stopPropagation();
+
+    // Construct a plane parallel to the camera view plane at the piece's position
+    const normal = new THREE.Vector3();
+    camera.getWorldDirection(normal).negate();
+    const currentWorldPos = new THREE.Vector3(...pos);
+    dragPlaneRef.current.setFromNormalAndCoplanarPoint(normal, currentWorldPos);
+
+    if (e.ray.intersectPlane(dragPlaneRef.current, planeIntersectRef.current)) {
+      offsetRef.current.copy(planeIntersectRef.current).sub(currentWorldPos);
+      draggingRef.current = true;
+      try {
+        (e.target as HTMLElement)?.setPointerCapture?.(e.pointerId);
+      } catch (_) {}
+    }
+  };
+
+  const handlePointerMove = (e: any) => {
+    if (!draggingRef.current || isSpacePressed) return;
+    e.stopPropagation();
+
+    if (e.ray.intersectPlane(dragPlaneRef.current, planeIntersectRef.current)) {
+      const newPos = planeIntersectRef.current.clone().sub(offsetRef.current);
+      const dx = Number((newPos.x - basePos[0]).toFixed(2));
+      const dy = Number((newPos.y - basePos[1]).toFixed(2));
+      const dz = Number((newPos.z - basePos[2]).toFixed(2));
+      onItemDrag?.(index, dx, dy, dz);
+    }
+  };
+
+  const handlePointerUp = (e: any) => {
+    if (draggingRef.current) {
+      draggingRef.current = false;
+      e.stopPropagation();
+      try {
+        (e.target as HTMLElement)?.releasePointerCapture?.(e.pointerId);
+      } catch (_) {}
+    }
+  };
 
   return (
-    <DragControls
-      onDragEnd={() => {
-        if (groupRef.current && onItemDrag) {
-          const newX = groupRef.current.position.x;
-          const newY = groupRef.current.position.y;
-          const newZ = groupRef.current.position.z;
-          
-          const overrideX = newX - basePos[0];
-          const overrideY = newY - basePos[1];
-          const overrideZ = newZ - basePos[2];
-          
-          onItemDrag(index, overrideX, overrideY, overrideZ);
-        }
-      }}
+    <group
+      position={pos}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
     >
-      <group ref={groupRef} position={pos}>
-        {children}
-      </group>
-    </DragControls>
+      {children}
+    </group>
   );
 }
 
@@ -626,7 +656,7 @@ export function Scene({
         antialias: true,
         powerPreference: "high-performance",
       }}
-      dpr={isRecording ? 2.5 : [1.75, 2.5]}
+      dpr={[1.75, 2.5]}
       camera={{ position: [0, 0, 8], fov: cameraFov }}
       shadows
     >
