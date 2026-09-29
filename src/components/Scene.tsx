@@ -221,24 +221,26 @@ function AnimatedItem({
   children: React.ReactNode;
 }) {
   const itemRef = useRef<THREE.Group>(null);
+  const rotGroupRef = useRef<THREE.Group>(null);
 
   useFrame((state, delta) => {
-    if (!itemRef.current) return;
+    if (!itemRef.current || !rotGroupRef.current) return;
     
-    if (animate && animationScope === 'individual') {
+    if (animate && (animationScope === 'individual' || animationScope === 'self')) {
       const speed = animationSpeed || 1;
       const time = state.clock.elapsedTime * speed;
       const offset = index * 0.5; 
       const localTime = time + offset;
 
-      // Handle positions
+      // Handle positions: float ONLY if float or all
       if (animationType === 'float' || animationType === 'all') {
         itemRef.current.position.set(
           basePosition[0],
-          basePosition[1] + Math.sin(localTime) * 1.5,
+          basePosition[1] + Math.sin(localTime) * 0.5,
           basePosition[2]
         );
       } else {
+        // Purely fixed in place - ZERO vertical shift
         itemRef.current.position.set(...basePosition);
       }
 
@@ -255,32 +257,36 @@ function AnimatedItem({
         itemRef.current.scale.set(1, 1, 1);
       }
 
-      // Handle rotations
+      // Handle pure in-place vertical axis rotation with ZERO wobble / ZERO up-down shift
       if (animationType === 'rotate' || animationType === 'all') {
-        itemRef.current.rotation.y += delta * speed;
+        rotGroupRef.current.rotation.y += delta * speed;
       } else if (animationType === 'tumble') {
-        itemRef.current.rotation.x += delta * speed * 0.5;
-        itemRef.current.rotation.y += delta * speed * 0.7;
-        itemRef.current.rotation.z += delta * speed * 0.3;
+        rotGroupRef.current.rotation.x += delta * speed * 0.5;
+        rotGroupRef.current.rotation.y += delta * speed * 0.7;
+        rotGroupRef.current.rotation.z += delta * speed * 0.3;
       } else if (animationType === 'swing') {
-        itemRef.current.rotation.set(
-          baseRotation[0],
-          baseRotation[1] + Math.sin(localTime * 0.5) * 0.6,
-          baseRotation[2] + Math.sin(localTime) * 0.4
+        rotGroupRef.current.rotation.set(
+          0,
+          Math.sin(localTime * 0.5) * 0.4,
+          Math.sin(localTime) * 0.2
         );
       } else {
-         itemRef.current.rotation.set(...baseRotation);
+        rotGroupRef.current.rotation.set(0, 0, 0);
       }
     } else {
-       itemRef.current.position.set(...basePosition);
-       itemRef.current.rotation.set(...baseRotation);
-       itemRef.current.scale.set(1, 1, 1);
+      itemRef.current.position.set(...basePosition);
+      itemRef.current.scale.set(1, 1, 1);
+      rotGroupRef.current.rotation.set(0, 0, 0);
     }
   });
 
   return (
-    <group ref={itemRef} position={basePosition} rotation={baseRotation}>
-      {children}
+    <group ref={itemRef} position={basePosition}>
+      <group ref={rotGroupRef}>
+        <group rotation={baseRotation}>
+          {children}
+        </group>
+      </group>
     </group>
   );
 }
@@ -382,7 +388,9 @@ function InnerScene({
   useFrame((state, delta) => {
     if (!groupRef.current) return;
 
-    if (animate && animationScope === 'group') {
+    const isMultiItem = (quantity || 1) > 1;
+
+    if (animate && animationScope === 'group' && isMultiItem) {
       const speed = animationSpeed || 1;
       const time = state.clock.elapsedTime * speed;
       
@@ -560,7 +568,7 @@ function InnerScene({
                 animate={animate || false}
                 animationSpeed={animationSpeed}
                 animationType={animationType}
-                animationScope={animationScope}
+                animationScope={(quantity || 1) <= 1 ? 'individual' : animationScope}
               >
                 {shapeType === 'custom' && customModel ? (
                   <CustomModel3D

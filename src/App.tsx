@@ -36,7 +36,7 @@ export default function App() {
   const [animate, setAnimate] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [animationType, setAnimationType] = useState<'rotate' | 'zoom-in' | 'zoom-out' | 'float' | 'tumble' | 'swing' | 'all'>('rotate');
-  const [animationScope, setAnimationScope] = useState<'group' | 'individual'>('group');
+  const [animationScope, setAnimationScope] = useState<'group' | 'individual'>('individual');
   const [cameraFov, setCameraFov] = useState(45);
   const [cameraAutoRotate, setCameraAutoRotate] = useState(false);
   const [cameraAutoRotateSpeed, setCameraAutoRotateSpeed] = useState(2);
@@ -1082,16 +1082,18 @@ export default function App() {
                 <label className="text-sm font-medium text-neutral-700">Scope</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => setAnimationScope('group')}
-                    className={`py-1.5 text-xs font-medium rounded border transition-colors ${animationScope === 'group' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-neutral-200 text-neutral-600 hover:border-indigo-300'}`}
-                  >
-                    Group
-                  </button>
-                  <button
                     onClick={() => setAnimationScope('individual')}
                     className={`py-1.5 text-xs font-medium rounded border transition-colors ${animationScope === 'individual' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-neutral-200 text-neutral-600 hover:border-indigo-300'}`}
+                    title="Gira cada figura parada no seu próprio eixo (sem sair do lugar)"
                   >
-                    Individual
+                    No próprio eixo
+                  </button>
+                  <button
+                    onClick={() => setAnimationScope('group')}
+                    className={`py-1.5 text-xs font-medium rounded border transition-colors ${animationScope === 'group' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-neutral-200 text-neutral-600 hover:border-indigo-300'}`}
+                    title="Gira o conjunto todo em órbita coletiva"
+                  >
+                    Em grupo
                   </button>
                 </div>
               </div>
