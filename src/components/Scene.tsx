@@ -49,6 +49,7 @@ interface SceneProps {
   exportBridgeRef?: React.MutableRefObject<any>;
   isRecording?: boolean;
   dragMode?: 'pan' | 'rotate';
+  isSpacePressed?: boolean;
 }
 
 function SceneExportBridge({ bridgeRef }: { bridgeRef?: React.MutableRefObject<any> }) {
@@ -137,6 +138,69 @@ function CameraController({ fov, trigger }: { fov: number, trigger?: { id: numbe
   return null;
 }
 
+function SpaceMousePanHandler({ isSpacePressed }: { isSpacePressed?: boolean }) {
+  const { camera, controls, gl } = useThree();
+  const lastPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!isSpacePressed) {
+      lastPosRef.current = null;
+      return;
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isSpacePressed || !controls) return;
+
+      let deltaX = e.movementX;
+      let deltaY = e.movementY;
+
+      if (deltaX === undefined || deltaY === undefined || (deltaX === 0 && deltaY === 0)) {
+        if (lastPosRef.current) {
+          deltaX = e.clientX - lastPosRef.current.x;
+          deltaY = e.clientY - lastPosRef.current.y;
+        } else {
+          lastPosRef.current = { x: e.clientX, y: e.clientY };
+          return;
+        }
+      }
+      lastPosRef.current = { x: e.clientX, y: e.clientY };
+
+      if (deltaX === 0 && deltaY === 0) return;
+
+      const persCamera = camera as THREE.PerspectiveCamera;
+      const target = (controls as any).target as THREE.Vector3;
+      if (!target) return;
+
+      const dist = persCamera.position.distanceTo(target);
+      const fovRad = ((persCamera.fov || 50) * Math.PI) / 180;
+      const heightAtTarget = 2 * Math.tan(fovRad / 2) * dist;
+      const factor = heightAtTarget / (gl.domElement.clientHeight || window.innerHeight);
+
+      // Camera right and up vectors in world space
+      const vRight = new THREE.Vector3();
+      const vUp = new THREE.Vector3();
+      const vForward = new THREE.Vector3();
+      persCamera.matrix.extractBasis(vRight, vUp, vForward);
+
+      // Translate camera and target together
+      const moveVec = new THREE.Vector3()
+        .addScaledVector(vRight, -deltaX * factor)
+        .addScaledVector(vUp, deltaY * factor);
+
+      persCamera.position.add(moveVec);
+      target.add(moveVec);
+      (controls as any).update();
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [isSpacePressed, camera, controls, gl]);
+
+  return null;
+}
+
 function AnimatedItem({
   index,
   basePosition,
@@ -221,9 +285,17 @@ function AnimatedItem({
   );
 }
 
-function DraggableItemWrapper({ index, pos, basePos, onItemDrag, children }: any) {
+function DraggableItemWrapper({ index, pos, basePos, onItemDrag, children, isSpacePressed }: any) {
   const groupRef = useRef<THREE.Group>(null);
   
+  if (isSpacePressed) {
+    return (
+      <group ref={groupRef} position={pos}>
+        {children}
+      </group>
+    );
+  }
+
   return (
     <DragControls
       onDragEnd={() => {
@@ -273,6 +345,7 @@ function InnerScene({
   waveAmplitude = 0,
   waveFrequency = 1,
   alignmentAxis = 'x',
+  isSpacePressed,
 }: Partial<SceneProps>) {
   const groupRef = useRef<THREE.Group>(null);
   
@@ -448,6 +521,7 @@ function InnerScene({
               pos={pos}
               basePos={[basePosX, basePosY, basePosZ]}
               onItemDrag={onItemDrag}
+              isSpacePressed={isSpacePressed}
             >
               <AnimatedItem
                 index={i}
@@ -541,7 +615,8 @@ export function Scene({
   alignmentAxis = 'x',
   exportBridgeRef,
   isRecording = false,
-  dragMode = 'pan',
+  dragMode = 'rotate',
+  isSpacePressed = false,
 }: SceneProps) {
   return (
     <Canvas
@@ -557,6 +632,7 @@ export function Scene({
     >
       <SceneExportBridge bridgeRef={exportBridgeRef} />
       <CameraController fov={cameraFov} trigger={cameraTrigger} />
+      <SpaceMousePanHandler isSpacePressed={isSpacePressed} />
       {!transparentBg && <color attach="background" args={[bgColor]} />}
       
       {/* Lighting to make the shapes look soft and balanced without excessive specular glare */}
@@ -601,6 +677,7 @@ export function Scene({
         waveAmplitude={waveAmplitude}
         waveFrequency={waveFrequency}
         alignmentAxis={alignmentAxis}
+        isSpacePressed={isSpacePressed}
       />
 
       {/* Ground shadow (hidden when exporting with transparent bg) */}
@@ -617,6 +694,7 @@ export function Scene({
 
       <OrbitControls
         makeDefault
+        enabled={!isSpacePressed}
         minDistance={1}
         maxDistance={40}
         autoRotate={autoRotate}
@@ -628,7 +706,7 @@ export function Scene({
         mouseButtons={{
           LEFT: dragMode === 'pan' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
           MIDDLE: THREE.MOUSE.DOLLY,
-          RIGHT: dragMode === 'pan' ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN,
+          RIGHT: THREE.MOUSE.PAN,
         }}
         touches={{
           ONE: dragMode === 'pan' ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE,

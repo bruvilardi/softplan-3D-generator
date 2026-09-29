@@ -49,13 +49,16 @@ export default function App() {
   const clearcoatRoughness = 0.06 + (1 - shininess) * 0.16;
   const exportBridgeRef = useRef<{ captureImage: (format: 'png' | 'jpeg', transparent: boolean) => string } | null>(null);
 
-  // Background Drag Mode (Pan / Posicionar na tela vs Girar 3D)
-  const [dragMode, setDragMode] = useState<'pan' | 'rotate'>('pan');
+  // Background Drag Mode (Girar 3D por padrão vs Pan / Posicionar na tela)
+  const [dragMode, setDragMode] = useState<'rotate' | 'pan'>('rotate');
   const [isSpacePressed, setIsSpacePressed] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+      const targetTag = (e.target as HTMLElement)?.tagName;
+      const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(targetTag) || (e.target as HTMLElement)?.isContentEditable;
+      if (e.code === 'Space' && !isInput) {
+        e.preventDefault();
         setIsSpacePressed(true);
       }
     };
@@ -64,11 +67,17 @@ export default function App() {
         setIsSpacePressed(false);
       }
     };
+    const handleBlur = () => {
+      setIsSpacePressed(false);
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
     };
   }, []);
 
@@ -1091,22 +1100,9 @@ export default function App() {
         {/* Floating Canvas Quick Controls */}
         <div className="absolute top-5 left-1/2 -translate-x-1/2 z-20 flex items-center bg-white/90 backdrop-blur-md px-2 py-1.5 rounded-xl shadow-lg border border-neutral-200/90 space-x-1">
           <button
-            onClick={() => setDragMode('pan')}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeDragMode === 'pan'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
-            }`}
-            title="Clique e arraste no fundo para mover e posicionar os elementos na tela"
-          >
-            <Hand className="w-3.5 h-3.5" />
-            <span>Mover Tela (Pan)</span>
-          </button>
-
-          <button
             onClick={() => setDragMode('rotate')}
             className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeDragMode === 'rotate'
+              !isSpacePressed && dragMode === 'rotate'
                 ? 'bg-indigo-600 text-white shadow-xs'
                 : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
             }`}
@@ -1114,6 +1110,19 @@ export default function App() {
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Girar 3D</span>
+          </button>
+
+          <button
+            onClick={() => setDragMode('pan')}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              isSpacePressed || dragMode === 'pan'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+            }`}
+            title="Clique e arraste no fundo para mover e posicionar os elementos na tela"
+          >
+            <Hand className="w-3.5 h-3.5" />
+            <span>{isSpacePressed ? 'Espaço: Movendo Tela' : 'Mover Tela (Pan)'}</span>
           </button>
 
           <div className="w-px h-4 bg-neutral-200 mx-1" />
@@ -1144,7 +1153,8 @@ export default function App() {
           clearcoatRoughness={clearcoatRoughness}
           exportBridgeRef={exportBridgeRef}
           isRecording={recordingMode !== 'none'}
-          dragMode={activeDragMode}
+          dragMode={dragMode}
+          isSpacePressed={isSpacePressed}
           bgColor={bgColor}
           ambientIntensity={ambientIntensity}
           lightRotation={lightRotation}
@@ -1168,17 +1178,31 @@ export default function App() {
         />
         
         {/* Helper overlay */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none bg-neutral-900/80 backdrop-blur-md text-white px-4 py-2 rounded-full text-xs font-medium flex items-center space-x-3 shadow-lg">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none bg-neutral-900/85 backdrop-blur-md text-white px-4 py-2 rounded-full text-xs font-medium flex items-center space-x-3 shadow-lg border border-white/10">
           <span className="flex items-center gap-1.5">
-            {activeDragMode === 'pan' ? <Hand className="w-3.5 h-3.5 text-indigo-400" /> : <RotateCcw className="w-3.5 h-3.5 text-indigo-400" />}
-            {activeDragMode === 'pan' ? 'Arraste o fundo para posicionar' : 'Arraste o fundo para girar'}
+            {isSpacePressed ? (
+              <span className="flex items-center gap-1 text-emerald-400 font-semibold animate-pulse">
+                <Hand className="w-3.5 h-3.5" />
+                Mova o mouse para posicionar
+              </span>
+            ) : dragMode === 'rotate' ? (
+              <span className="flex items-center gap-1 text-indigo-300">
+                <RotateCcw className="w-3.5 h-3.5" />
+                Arraste o fundo para girar 3D
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-indigo-300">
+                <Hand className="w-3.5 h-3.5" />
+                Arraste o fundo para mover
+              </span>
+            )}
           </span>
           <span className="opacity-40">•</span>
-          <span>Arraste peças individuais</span>
+          <span className="bg-white/20 px-2 py-0.5 rounded text-[11px] font-mono text-white/95">
+            [Espaço] + Mover mouse = Mover Tela
+          </span>
           <span className="opacity-40">•</span>
           <span>Scroll para zoom</span>
-          <span className="opacity-40">•</span>
-          <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-mono">Espaço = Mover</span>
         </div>
       </main>
     </div>
